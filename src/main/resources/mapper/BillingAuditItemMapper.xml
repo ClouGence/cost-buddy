@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.costbuddy.mapper.BillingAuditItemMapper">
+
+    <resultMap id="BillingAuditItemResultMap" type="com.costbuddy.domain.BillingAuditItemDO">
+        <id column="id" property="id"/>
+        <result column="run_id" property="runId"/>
+        <result column="provider" property="provider"/>
+        <result column="product_code" property="productCode"/>
+        <result column="product_name" property="productName"/>
+        <result column="product_detail" property="productDetail"/>
+        <result column="commodity_code" property="commodityCode"/>
+        <result column="billing_item_code" property="billingItemCode"/>
+        <result column="billing_item" property="billingItem"/>
+        <result column="billing_type" property="billingType"/>
+        <result column="subscription_type" property="subscriptionType"/>
+        <result column="currency" property="currency"/>
+        <result column="stable_day_pretax_amount" property="stableDayPretaxAmount"/>
+        <result column="period_pretax_amount" property="periodPretaxAmount"/>
+        <result column="instance_count" property="instanceCount"/>
+        <result column="region_count" property="regionCount"/>
+        <result column="sample_instance_id" property="sampleInstanceId"/>
+        <result column="sample_region" property="sampleRegion"/>
+        <result column="sample_usage" property="sampleUsage"/>
+        <result column="sample_usage_unit" property="sampleUsageUnit"/>
+        <result column="decision" property="decision"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">id, run_id, provider, product_code, product_name, product_detail, commodity_code, billing_item_code, billing_item, billing_type, subscription_type, currency, stable_day_pretax_amount, period_pretax_amount, instance_count, region_count, sample_instance_id, sample_region, sample_usage, sample_usage_unit, decision, created_at, updated_at</sql>
+
+    <select id="selectById" resultMap="BillingAuditItemResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_audit_item WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BillingAuditItemResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_audit_item ORDER BY id DESC
+    </select>
+
+    <select id="selectByRunId" resultMap="BillingAuditItemResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_audit_item WHERE run_id = #{runId} ORDER BY period_pretax_amount DESC, id DESC
+    </select>
+
+    <insert id="insert" parameterType="com.costbuddy.domain.BillingAuditItemDO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO billing_audit_item (
+            run_id,
+            provider,
+            product_code,
+            product_name,
+            product_detail,
+            commodity_code,
+            billing_item_code,
+            billing_item,
+            billing_type,
+            subscription_type,
+            currency,
+            stable_day_pretax_amount,
+            period_pretax_amount,
+            instance_count,
+            region_count,
+            sample_instance_id,
+            sample_region,
+            sample_usage,
+            sample_usage_unit,
+            decision
+        )
+        VALUES (
+            #{runId},
+            #{provider},
+            #{productCode},
+            #{productName},
+            #{productDetail},
+            #{commodityCode},
+            #{billingItemCode},
+            #{billingItem},
+            #{billingType},
+            #{subscriptionType},
+            #{currency},
+            #{stableDayPretaxAmount},
+            #{periodPretaxAmount},
+            #{instanceCount},
+            #{regionCount},
+            #{sampleInstanceId},
+            #{sampleRegion},
+            #{sampleUsage},
+            #{sampleUsageUnit},
+            #{decision}
+        )
+    </insert>
+
+    <update id="update" parameterType="com.costbuddy.domain.BillingAuditItemDO">
+        UPDATE billing_audit_item
+        SET run_id = #{runId},
+            provider = #{provider},
+            product_code = #{productCode},
+            product_name = #{productName},
+            product_detail = #{productDetail},
+            commodity_code = #{commodityCode},
+            billing_item_code = #{billingItemCode},
+            billing_item = #{billingItem},
+            billing_type = #{billingType},
+            subscription_type = #{subscriptionType},
+            currency = #{currency},
+            stable_day_pretax_amount = #{stableDayPretaxAmount},
+            period_pretax_amount = #{periodPretaxAmount},
+            instance_count = #{instanceCount},
+            region_count = #{regionCount},
+            sample_instance_id = #{sampleInstanceId},
+            sample_region = #{sampleRegion},
+            sample_usage = #{sampleUsage},
+            sample_usage_unit = #{sampleUsageUnit},
+            decision = #{decision}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM billing_audit_item WHERE id = #{id}
+    </delete>
+</mapper>

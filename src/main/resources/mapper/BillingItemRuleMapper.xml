@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.costbuddy.mapper.BillingItemRuleMapper">
+
+    <resultMap id="BillingItemRuleResultMap" type="com.costbuddy.domain.BillingItemRuleDO">
+        <id column="id" property="id"/>
+        <result column="provider" property="provider"/>
+        <result column="match_scope" property="matchScope"/>
+        <result column="product_code" property="productCode"/>
+        <result column="product_name" property="productName"/>
+        <result column="product_detail" property="productDetail"/>
+        <result column="commodity_code" property="commodityCode"/>
+        <result column="billing_item_code" property="billingItemCode"/>
+        <result column="billing_item" property="billingItem"/>
+        <result column="decision" property="decision"/>
+        <result column="note" property="note"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">id, provider, match_scope, product_code, product_name, product_detail, commodity_code, billing_item_code, billing_item, decision, note, created_at, updated_at</sql>
+
+    <select id="selectById" resultMap="BillingItemRuleResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_item_rule WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BillingItemRuleResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_item_rule ORDER BY id DESC
+    </select>
+
+    <insert id="insert" parameterType="com.costbuddy.domain.BillingItemRuleDO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO billing_item_rule (provider, match_scope, product_code, product_name, product_detail, commodity_code, billing_item_code, billing_item, decision, note)
+        VALUES (#{provider}, #{matchScope}, #{productCode}, #{productName}, #{productDetail}, #{commodityCode}, #{billingItemCode}, #{billingItem}, #{decision}, #{note})
+    </insert>
+
+    <update id="update" parameterType="com.costbuddy.domain.BillingItemRuleDO">
+        UPDATE billing_item_rule
+        SET provider = #{provider},
+            match_scope = #{matchScope},
+            product_code = #{productCode},
+            product_name = #{productName},
+            product_detail = #{productDetail},
+            commodity_code = #{commodityCode},
+            billing_item_code = #{billingItemCode},
+            billing_item = #{billingItem},
+            decision = #{decision},
+            note = #{note}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM billing_item_rule WHERE id = #{id}
+    </delete>
+</mapper>

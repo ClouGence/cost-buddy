@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.costbuddy.mapper.BillingItemExplanationMapper">
+
+    <resultMap id="BillingItemExplanationResultMap" type="com.costbuddy.domain.BillingItemExplanationDO">
+        <id column="id" property="id"/>
+        <result column="audit_item_id" property="auditItemId"/>
+        <result column="ai_engine_id" property="aiEngineId"/>
+        <result column="prompt_context" property="promptContext"/>
+        <result column="explanation" property="explanation"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">id, audit_item_id, ai_engine_id, prompt_context, explanation, created_at, updated_at</sql>
+
+    <select id="selectById" resultMap="BillingItemExplanationResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_item_explanation WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BillingItemExplanationResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_item_explanation ORDER BY id DESC
+    </select>
+
+    <insert id="insert" parameterType="com.costbuddy.domain.BillingItemExplanationDO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO billing_item_explanation (audit_item_id, ai_engine_id, prompt_context, explanation)
+        VALUES (#{auditItemId}, #{aiEngineId}, #{promptContext}, #{explanation})
+    </insert>
+
+    <update id="update" parameterType="com.costbuddy.domain.BillingItemExplanationDO">
+        UPDATE billing_item_explanation
+        SET audit_item_id = #{auditItemId},
+            ai_engine_id = #{aiEngineId},
+            prompt_context = #{promptContext},
+            explanation = #{explanation}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM billing_item_explanation WHERE id = #{id}
+    </delete>
+</mapper>

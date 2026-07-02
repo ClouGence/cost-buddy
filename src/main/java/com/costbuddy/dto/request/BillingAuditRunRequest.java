@@ -1,0 +1,21 @@
+package com.costbuddy.dto.request;
+
+import jakarta.validation.constraints.NotNull;
+import java.time.LocalDate;
+import lombok.Data;
+
+@Data
+public class BillingAuditRunRequest {
+
+    @NotNull
+    private Long cloudAccountId;
+
+    @NotNull
+    private LocalDate billDate;
+
+    @NotNull
+    private LocalDate periodStartDate;
+
+    @NotNull
+    private LocalDate periodEndDate;
+}

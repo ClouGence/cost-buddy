@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.costbuddy.mapper.AiEngineMapper">
+
+    <resultMap id="AiEngineResultMap" type="com.costbuddy.domain.AiEngineDO">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="model" property="model"/>
+        <result column="api_key" property="apiKey"/>
+        <result column="api_addr" property="apiAddr"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">id, name, model, api_key, api_addr, created_at, updated_at</sql>
+
+    <select id="selectById" resultMap="AiEngineResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM ai_engine WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="AiEngineResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM ai_engine ORDER BY id DESC
+    </select>
+
+    <insert id="insert" parameterType="com.costbuddy.domain.AiEngineDO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ai_engine (name, model, api_key, api_addr)
+        VALUES (#{name}, #{model}, #{apiKey}, #{apiAddr})
+    </insert>
+
+    <update id="update" parameterType="com.costbuddy.domain.AiEngineDO">
+        UPDATE ai_engine
+        SET name = #{name},
+            model = #{model},
+            api_key = #{apiKey},
+            api_addr = #{apiAddr}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM ai_engine WHERE id = #{id}
+    </delete>
+</mapper>

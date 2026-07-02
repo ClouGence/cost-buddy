@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.costbuddy.mapper.BillingAuditRunMapper">
+
+    <resultMap id="BillingAuditRunResultMap" type="com.costbuddy.domain.BillingAuditRunDO">
+        <id column="id" property="id"/>
+        <result column="cloud_account_id" property="cloudAccountId"/>
+        <result column="status" property="status"/>
+        <result column="bill_date" property="billDate"/>
+        <result column="period_start_date" property="periodStartDate"/>
+        <result column="period_end_date" property="periodEndDate"/>
+        <result column="item_count" property="itemCount"/>
+        <result column="unknown_item_count" property="unknownItemCount"/>
+        <result column="total_pretax_amount" property="totalPretaxAmount"/>
+        <result column="unknown_pretax_amount" property="unknownPretaxAmount"/>
+        <result column="message" property="message"/>
+        <result column="started_at" property="startedAt"/>
+        <result column="finished_at" property="finishedAt"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">id, cloud_account_id, status, bill_date, period_start_date, period_end_date, item_count, unknown_item_count, total_pretax_amount, unknown_pretax_amount, message, started_at, finished_at, created_at, updated_at</sql>
+
+    <select id="selectById" resultMap="BillingAuditRunResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_audit_run WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BillingAuditRunResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_audit_run ORDER BY id DESC
+    </select>
+
+    <insert id="insert" parameterType="com.costbuddy.domain.BillingAuditRunDO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO billing_audit_run (
+            cloud_account_id,
+            status,
+            bill_date,
+            period_start_date,
+            period_end_date,
+            item_count,
+            unknown_item_count,
+            total_pretax_amount,
+            unknown_pretax_amount,
+            message,
+            started_at,
+            finished_at
+        )
+        VALUES (
+            #{cloudAccountId},
+            #{status},
+            #{billDate},
+            #{periodStartDate},
+            #{periodEndDate},
+            #{itemCount},
+            #{unknownItemCount},
+            #{totalPretaxAmount},
+            #{unknownPretaxAmount},
+            #{message},
+            #{startedAt},
+            #{finishedAt}
+        )
+    </insert>
+
+    <update id="update" parameterType="com.costbuddy.domain.BillingAuditRunDO">
+        UPDATE billing_audit_run
+        SET cloud_account_id = #{cloudAccountId},
+            status = #{status},
+            bill_date = #{billDate},
+            period_start_date = #{periodStartDate},
+            period_end_date = #{periodEndDate},
+            item_count = #{itemCount},
+            unknown_item_count = #{unknownItemCount},
+            total_pretax_amount = #{totalPretaxAmount},
+            unknown_pretax_amount = #{unknownPretaxAmount},
+            message = #{message},
+            started_at = #{startedAt},
+            finished_at = #{finishedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM billing_audit_run WHERE id = #{id}
+    </delete>
+</mapper>
