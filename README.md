@@ -24,6 +24,6 @@ Default metadata database:
 
 ```text
 jdbc:mysql://127.0.0.1:3306/costbuddy
-username: origin
-password: 123258
+username: costbuddy_user
+password: CostBuddy@2026
 ```
