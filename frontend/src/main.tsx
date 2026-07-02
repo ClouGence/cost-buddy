@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AiEngine, BillingAuditItem, BillingAuditRun, BillingItemRule, CloudAccount, CloudAccountCheck, api } from './api';
+import { AiEngine, BillingAuditItem, BillingAuditItemResource, BillingAuditRun, BillingItemRule, CloudAccount, CloudAccountCheck, api } from './api';
 import './styles.css';
 
 type Tab = 'audits' | 'accounts' | 'rules' | 'ai';
@@ -13,6 +13,8 @@ const TEXT = {
       switchLanguage: '切换语言',
       delete: '删除',
       check: '检查',
+      previous: '上一页',
+      next: '下一页',
       yes: '是',
       no: '否'
     },
@@ -31,27 +33,37 @@ const TEXT = {
       cloudAccount: '云账号',
       selectAccount: '选择账号',
       stableBillDate: '稳定账单日',
-      periodStart: '统计开始',
-      periodEnd: '统计结束',
       runAudit: '运行审计',
       auditRuns: '审计记录',
       id: 'ID',
       account: '账号',
       billDate: '账单日',
       executionTime: '执行时间',
-      window: '窗口',
       status: '状态',
       unknown: '陌生项',
       amount: '金额',
+      action: '操作',
       noAuditRuns: '暂无审计记录',
       runItems: '审计项',
+      aggregateDetails: '聚合明细',
+      backToAuditRuns: '回到审计列表',
+      resourceDetails: '资源明细',
+      backToAuditItems: '回到审计项',
+      instanceId: '资源 ID',
+      instanceName: '资源名称',
+      region: '地域',
+      resourceGroup: '资源组',
+      usage: '用量',
+      billingType: '账单类型',
       product: '产品',
       detail: '明细',
       billingItem: '计费项',
-      periodAmount: '周期金额',
+      periodAmount: '账单日金额',
       decision: '处理状态',
       noAuditItems: '暂无审计项',
+      noResourceDetails: '暂无资源明细',
       loadItemsFailed: '加载审计项失败',
+      loadResourcesFailed: '加载资源明细失败',
       accountRequired: '请选择云账号',
       auditRunCreated: '审计记录已创建',
       createAuditFailed: '创建审计失败'
@@ -141,6 +153,8 @@ const TEXT = {
       switchLanguage: 'Switch language',
       delete: 'Delete',
       check: 'Check',
+      previous: 'Previous',
+      next: 'Next',
       yes: 'Yes',
       no: 'No'
     },
@@ -159,27 +173,37 @@ const TEXT = {
       cloudAccount: 'Cloud account',
       selectAccount: 'Select account',
       stableBillDate: 'Stable bill date',
-      periodStart: 'Period start',
-      periodEnd: 'Period end',
       runAudit: 'Run audit',
       auditRuns: 'Audit Runs',
       id: 'ID',
       account: 'Account',
       billDate: 'Bill Date',
       executionTime: 'Started At',
-      window: 'Window',
       status: 'Status',
       unknown: 'Unknown',
       amount: 'Amount',
+      action: 'Action',
       noAuditRuns: 'No audit runs',
       runItems: 'Run Items',
+      aggregateDetails: 'Details',
+      backToAuditRuns: 'Back to Audit Runs',
+      resourceDetails: 'Resources',
+      backToAuditItems: 'Back to Items',
+      instanceId: 'Resource ID',
+      instanceName: 'Resource Name',
+      region: 'Region',
+      resourceGroup: 'Resource Group',
+      usage: 'Usage',
+      billingType: 'Billing Type',
       product: 'Product',
       detail: 'Detail',
       billingItem: 'Billing Item',
-      periodAmount: 'Period Amount',
+      periodAmount: 'Bill Date Amount',
       decision: 'Decision',
       noAuditItems: 'No audit items',
+      noResourceDetails: 'No resource details',
       loadItemsFailed: 'Load audit items failed',
+      loadResourcesFailed: 'Load resource details failed',
       accountRequired: 'Cloud account is required',
       auditRunCreated: 'Audit run created',
       createAuditFailed: 'Create audit failed'
@@ -401,11 +425,19 @@ function AuditWorkspace({
   onStatus: (message: string) => void;
   text: UiText;
 }) {
+  const pageSize = 10;
   const [form, setForm] = useState(() => defaultAuditForm(accounts[0]?.id));
-  const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+  const [detailRunId, setDetailRunId] = useState<number | null>(null);
   const [items, setItems] = useState<BillingAuditItem[]>([]);
+  const [resourceItemId, setResourceItemId] = useState<number | null>(null);
+  const [resources, setResources] = useState<BillingAuditItemResource[]>([]);
+  const [page, setPage] = useState(1);
 
   const accountById = useMemo(() => new Map(accounts.map(account => [account.id, account])), [accounts]);
+  const pageCount = Math.max(1, Math.ceil(runs.length / pageSize));
+  const pagedRuns = useMemo(() => runs.slice((page - 1) * pageSize, page * pageSize), [page, runs]);
+  const detailRun = useMemo(() => runs.find(run => run.id === detailRunId) ?? null, [detailRunId, runs]);
+  const resourceItem = useMemo(() => items.find(item => item.id === resourceItemId) ?? null, [items, resourceItemId]);
 
   useEffect(() => {
     if (!form.cloudAccountId && accounts[0]) {
@@ -414,14 +446,31 @@ function AuditWorkspace({
   }, [accounts, form.cloudAccountId]);
 
   useEffect(() => {
-    if (selectedRunId === null) {
+    if (page > pageCount) {
+      setPage(pageCount);
+    }
+  }, [page, pageCount]);
+
+  useEffect(() => {
+    if (detailRunId === null) {
       setItems([]);
+      setResourceItemId(null);
       return;
     }
-    api.listBillingAuditItems(selectedRunId)
+    api.listBillingAuditItems(detailRunId)
       .then(setItems)
       .catch(error => onStatus(error instanceof Error ? error.message : text.audit.loadItemsFailed));
-  }, [selectedRunId, onStatus, text.audit.loadItemsFailed]);
+  }, [detailRunId, onStatus, text.audit.loadItemsFailed]);
+
+  useEffect(() => {
+    if (detailRunId === null || resourceItemId === null) {
+      setResources([]);
+      return;
+    }
+    api.listBillingAuditItemResources(detailRunId, resourceItemId)
+      .then(setResources)
+      .catch(error => onStatus(error instanceof Error ? error.message : text.audit.loadResourcesFailed));
+  }, [detailRunId, resourceItemId, onStatus, text.audit.loadResourcesFailed]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -432,20 +481,95 @@ function AuditWorkspace({
     try {
       const run = await api.triggerBillingAudit({
         cloudAccountId: Number(form.cloudAccountId),
-        billDate: form.billDate,
-        periodStartDate: form.periodStartDate,
-        periodEndDate: form.periodEndDate
+        billDate: form.billDate
       });
-      setSelectedRunId(run.id);
       if (run.status === 'FAILED') {
         onStatus(run.message || text.audit.createAuditFailed);
       } else {
         onStatus(text.audit.auditRunCreated);
       }
+      setPage(1);
       await onReload();
     } catch (error) {
       onStatus(error instanceof Error ? error.message : text.audit.createAuditFailed);
     }
+  }
+
+  if (detailRunId !== null) {
+    if (resourceItemId !== null) {
+      return (
+        <section className="panel table-panel audit-detail-panel">
+          <div className="panel-title">
+            <h2>{text.audit.resourceDetails}{resourceItem ? ` #${resourceItem.id}` : ''}</h2>
+            <button onClick={() => setResourceItemId(null)}>{text.audit.backToAuditItems}</button>
+          </div>
+          <div className="table-wrap">
+            <table className="resource-detail-table">
+              <thead>
+                <tr>
+                  <th>{text.audit.instanceId}</th>
+                  <th>{text.audit.instanceName}</th>
+                  <th>{text.audit.region}</th>
+                  <th>{text.audit.resourceGroup}</th>
+                  <th>{text.audit.usage}</th>
+                  <th>{text.audit.amount}</th>
+                  <th>{text.audit.billingType}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resources.map(resource => (
+                  <tr key={resource.rawLineId}>
+                    <td>{resource.instanceId || '-'}</td>
+                    <td>{resource.instanceName || '-'}</td>
+                    <td>{resource.region || resource.zone || '-'}</td>
+                    <td>{resource.resourceGroup || resource.costUnit || '-'}</td>
+                    <td>{formatUsage(resource.usageAmount, resource.usageUnit)}</td>
+                    <td>{formatPreciseMoney(resource.pretaxAmount)}</td>
+                    <td>{resource.billingType || '-'}</td>
+                  </tr>
+                ))}
+                {!resources.length && <EmptyRow colSpan={7} label={text.audit.noResourceDetails} />}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      );
+    }
+    return (
+      <section className="panel table-panel audit-detail-panel">
+        <div className="panel-title">
+          <h2>{text.audit.runItems}{detailRun ? ` #${detailRun.id}` : ''}</h2>
+          <button onClick={() => setDetailRunId(null)}>{text.audit.backToAuditRuns}</button>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{text.audit.product}</th>
+                <th>{text.audit.detail}</th>
+                <th>{text.audit.billingItem}</th>
+                <th>{text.audit.periodAmount}</th>
+                <th>{text.audit.decision}</th>
+                <th>{text.audit.action}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(item => (
+                <tr key={item.id}>
+                  <td>{item.productName || item.productCode || '-'}</td>
+                  <td>{item.productDetail || item.commodityCode || '-'}</td>
+                  <td>{item.billingItem || item.billingItemCode || '-'}</td>
+                  <td>{formatMoney(item.periodPretaxAmount)}</td>
+                  <td>{formatDecision(item.decision, text)}</td>
+                  <td><button onClick={() => setResourceItemId(item.id)}>{text.audit.resourceDetails}</button></td>
+                </tr>
+              ))}
+              {!items.length && <EmptyRow colSpan={6} label={text.audit.noAuditItems} />}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -468,14 +592,6 @@ function AuditWorkspace({
             {text.audit.stableBillDate}
             <input type="date" value={form.billDate} onChange={event => setForm({ ...form, billDate: event.target.value })} />
           </label>
-          <label>
-            {text.audit.periodStart}
-            <input type="date" value={form.periodStartDate} onChange={event => setForm({ ...form, periodStartDate: event.target.value })} />
-          </label>
-          <label>
-            {text.audit.periodEnd}
-            <input type="date" value={form.periodEndDate} onChange={event => setForm({ ...form, periodEndDate: event.target.value })} />
-          </label>
           <div className="form-actions">
             <button className="primary" type="submit" disabled={!accounts.length}>{text.audit.runAudit}</button>
           </div>
@@ -493,59 +609,34 @@ function AuditWorkspace({
                 <th>{text.audit.account}</th>
                 <th>{text.audit.billDate}</th>
                 <th>{text.audit.executionTime}</th>
-                <th>{text.audit.window}</th>
                 <th>{text.audit.status}</th>
                 <th>{text.audit.unknown}</th>
                 <th>{text.audit.amount}</th>
+                <th>{text.audit.action}</th>
               </tr>
             </thead>
             <tbody>
-              {runs.map(run => (
-                <tr className={selectedRunId === run.id ? 'selected-row' : ''} key={run.id} onClick={() => setSelectedRunId(run.id)}>
+              {pagedRuns.map(run => (
+                <tr key={run.id}>
                   <td>{run.id}</td>
                   <td>{accountById.get(run.cloudAccountId)?.name ?? run.cloudAccountId}</td>
                   <td>{run.billDate}</td>
                   <td>{formatDateTime(run.startedAt)}</td>
-                  <td>{run.periodStartDate} / {run.periodEndDate}</td>
                   <td><span className="status-pill">{formatAuditStatus(run.status, text)}</span></td>
                   <td>{run.unknownItemCount} / {run.itemCount}</td>
                   <td>{formatMoney(run.unknownPretaxAmount)} / {formatMoney(run.totalPretaxAmount)}</td>
+                  <td><button onClick={() => setDetailRunId(run.id)}>{text.audit.aggregateDetails}</button></td>
                 </tr>
               ))}
               {!runs.length && <EmptyRow colSpan={8} label={text.audit.noAuditRuns} />}
             </tbody>
           </table>
         </div>
-        {selectedRunId !== null && (
-          <div className="detail-block">
-            <h3>{text.audit.runItems}</h3>
-            <div className="table-wrap compact">
-              <table>
-                <thead>
-                  <tr>
-                    <th>{text.audit.product}</th>
-                    <th>{text.audit.detail}</th>
-                    <th>{text.audit.billingItem}</th>
-                    <th>{text.audit.periodAmount}</th>
-                    <th>{text.audit.decision}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map(item => (
-                    <tr key={item.id}>
-                      <td>{item.productName || item.productCode || '-'}</td>
-                      <td>{item.productDetail || item.commodityCode || '-'}</td>
-                      <td>{item.billingItem || item.billingItemCode || '-'}</td>
-                      <td>{formatMoney(item.periodPretaxAmount)}</td>
-                      <td>{formatDecision(item.decision, text)}</td>
-                    </tr>
-                  ))}
-                  {!items.length && <EmptyRow colSpan={5} label={text.audit.noAuditItems} />}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        <div className="pagination">
+          <button onClick={() => setPage(current => Math.max(1, current - 1))} disabled={page <= 1}>{text.common.previous}</button>
+          <span>{page} / {pageCount}</span>
+          <button onClick={() => setPage(current => Math.min(pageCount, current + 1))} disabled={page >= pageCount}>{text.common.next}</button>
+        </div>
       </section>
     </>
   );
@@ -933,9 +1024,7 @@ function defaultAuditForm(cloudAccountId?: number) {
   const billDate = offsetDate(-2);
   return {
     cloudAccountId: cloudAccountId ? String(cloudAccountId) : '',
-    billDate,
-    periodStartDate: offsetDate(-31),
-    periodEndDate: billDate
+    billDate
   };
 }
 
@@ -952,6 +1041,18 @@ function emptyToUndefined(value: string) {
 
 function formatMoney(value: number | undefined) {
   return Number(value ?? 0).toFixed(2);
+}
+
+function formatPreciseMoney(value: number | undefined) {
+  return Number(value ?? 0).toFixed(6);
+}
+
+function formatUsage(value: number | undefined, unit: string | undefined) {
+  if (value === undefined || value === null) {
+    return unit || '-';
+  }
+  const amount = Number(value).toLocaleString(undefined, { maximumFractionDigits: 8 });
+  return unit ? `${amount} ${unit}` : amount;
 }
 
 function formatDateTime(value: string | undefined) {

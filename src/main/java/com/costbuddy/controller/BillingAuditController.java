@@ -4,6 +4,7 @@ import com.costbuddy.common.api.ApiResponse;
 import com.costbuddy.domain.BillingAuditItemDO;
 import com.costbuddy.domain.BillingAuditRunDO;
 import com.costbuddy.dto.request.BillingAuditRunRequest;
+import com.costbuddy.dto.response.BillingAuditItemResourceResponse;
 import com.costbuddy.service.BillingAuditService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -45,5 +46,10 @@ public class BillingAuditController {
     @GetMapping("/{id}/items")
     public ApiResponse<List<BillingAuditItemDO>> listItems(@PathVariable Long id) {
         return ApiResponse.ok(billingAuditService.listItems(id));
+    }
+
+    @GetMapping("/{id}/items/{itemId}/resources")
+    public ApiResponse<List<BillingAuditItemResourceResponse>> listItemResources(@PathVariable Long id, @PathVariable Long itemId) {
+        return ApiResponse.ok(billingAuditService.listItemResources(id, itemId));
     }
 }

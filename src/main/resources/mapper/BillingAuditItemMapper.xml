@@ -119,4 +119,8 @@
     <delete id="deleteById">
         DELETE FROM billing_audit_item WHERE id = #{id}
     </delete>
+
+    <delete id="deleteByRunId">
+        DELETE FROM billing_audit_item WHERE run_id = #{runId}
+    </delete>
 </mapper>

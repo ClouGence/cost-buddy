@@ -47,6 +47,22 @@
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
 
+    <resultMap id="BillingAuditItemResourceResultMap" type="com.costbuddy.dto.response.BillingAuditItemResourceResponse">
+        <id column="raw_line_id" property="rawLineId"/>
+        <result column="bill_date" property="billDate"/>
+        <result column="instance_id" property="instanceId"/>
+        <result column="instance_name" property="instanceName"/>
+        <result column="region" property="region"/>
+        <result column="zone" property="zone"/>
+        <result column="resource_group" property="resourceGroup"/>
+        <result column="cost_unit" property="costUnit"/>
+        <result column="billing_type" property="billingType"/>
+        <result column="usage_amount" property="usageAmount"/>
+        <result column="usage_unit" property="usageUnit"/>
+        <result column="pretax_amount" property="pretaxAmount"/>
+        <result column="currency" property="currency"/>
+    </resultMap>
+
     <sql id="BaseColumnList">id, run_id, provider, source_api, source_billing_cycle, bill_date, line_hash, bill_account_id, bill_owner_id, payer_account_id, product_code, product_name, product_detail_code, product_detail, commodity_code, commodity_name, billing_item_code, billing_item, billing_type, subscription_type, instance_id, instance_name, region, zone, resource_group, cost_unit, usage_amount, usage_unit, pretax_gross_amount, invoice_discount, deductible_amount, pretax_amount, cash_amount, payment_amount, outstanding_amount, currency, tags, raw_payload, created_at, updated_at</sql>
 
     <select id="selectById" resultMap="BillingAuditRawLineResultMap">
@@ -59,6 +75,35 @@
 
     <select id="selectByRunId" resultMap="BillingAuditRawLineResultMap">
         SELECT <include refid="BaseColumnList"/> FROM billing_audit_raw_line WHERE run_id = #{runId} ORDER BY id ASC
+    </select>
+
+    <select id="selectResourcesByAuditItem" resultMap="BillingAuditItemResourceResultMap">
+        SELECT
+            id AS raw_line_id,
+            bill_date,
+            instance_id,
+            instance_name,
+            region,
+            zone,
+            resource_group,
+            cost_unit,
+            billing_type,
+            usage_amount,
+            usage_unit,
+            pretax_amount,
+            currency
+        FROM billing_audit_raw_line
+        WHERE run_id = #{item.runId}
+          AND provider &lt;=&gt; #{item.provider}
+          AND product_code &lt;=&gt; #{item.productCode}
+          AND product_name &lt;=&gt; #{item.productName}
+          AND product_detail &lt;=&gt; #{item.productDetail}
+          AND commodity_code &lt;=&gt; #{item.commodityCode}
+          AND billing_item_code &lt;=&gt; #{item.billingItemCode}
+          AND billing_item &lt;=&gt; #{item.billingItem}
+          AND subscription_type &lt;=&gt; #{item.subscriptionType}
+          AND currency &lt;=&gt; #{item.currency}
+        ORDER BY pretax_amount DESC, id ASC
     </select>
 
     <insert id="insert" parameterType="com.costbuddy.domain.BillingAuditRawLineDO" useGeneratedKeys="true" keyProperty="id">

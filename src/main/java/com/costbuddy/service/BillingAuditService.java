@@ -1,12 +1,13 @@
 package com.costbuddy.service;
 
-import com.costbuddy.common.exception.BusinessException;
 import com.costbuddy.common.exception.NotFoundException;
 import com.costbuddy.domain.BillingAuditItemDO;
 import com.costbuddy.domain.BillingAuditRunDO;
 import com.costbuddy.domain.CloudAccountDO;
 import com.costbuddy.dto.request.BillingAuditRunRequest;
+import com.costbuddy.dto.response.BillingAuditItemResourceResponse;
 import com.costbuddy.mapper.BillingAuditItemMapper;
+import com.costbuddy.mapper.BillingAuditRawLineMapper;
 import com.costbuddy.mapper.BillingAuditRunMapper;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -20,31 +21,34 @@ public class BillingAuditService {
 
     private final CloudAccountService            cloudAccountService;
     private final AliyunBillingRawLineCollector aliyunBillingRawLineCollector;
+    private final BillingAuditItemAggregator     billingAuditItemAggregator;
     private final BillingAuditRunMapper          billingAuditRunMapper;
     private final BillingAuditItemMapper         billingAuditItemMapper;
+    private final BillingAuditRawLineMapper      billingAuditRawLineMapper;
 
     public BillingAuditService(
         CloudAccountService cloudAccountService,
         AliyunBillingRawLineCollector aliyunBillingRawLineCollector,
+        BillingAuditItemAggregator billingAuditItemAggregator,
         BillingAuditRunMapper billingAuditRunMapper,
-        BillingAuditItemMapper billingAuditItemMapper
+        BillingAuditItemMapper billingAuditItemMapper,
+        BillingAuditRawLineMapper billingAuditRawLineMapper
     ) {
         this.cloudAccountService = cloudAccountService;
         this.aliyunBillingRawLineCollector = aliyunBillingRawLineCollector;
+        this.billingAuditItemAggregator = billingAuditItemAggregator;
         this.billingAuditRunMapper = billingAuditRunMapper;
         this.billingAuditItemMapper = billingAuditItemMapper;
+        this.billingAuditRawLineMapper = billingAuditRawLineMapper;
     }
 
     public BillingAuditRunDO trigger(BillingAuditRunRequest request) {
-        if (request.getPeriodEndDate().isBefore(request.getPeriodStartDate())) {
-            throw new BusinessException("INVALID_AUDIT_WINDOW", "periodEndDate must not be before periodStartDate");
-        }
         CloudAccountDO cloudAccount = cloudAccountService.get(request.getCloudAccountId());
         BillingAuditRunDO run = new BillingAuditRunDO();
         run.setCloudAccountId(request.getCloudAccountId());
         run.setBillDate(request.getBillDate());
-        run.setPeriodStartDate(request.getPeriodStartDate());
-        run.setPeriodEndDate(request.getPeriodEndDate());
+        run.setPeriodStartDate(request.getBillDate());
+        run.setPeriodEndDate(request.getBillDate());
         run.setStatus("RUNNING");
         run.setItemCount(0);
         run.setUnknownItemCount(0);
@@ -55,13 +59,15 @@ public class BillingAuditService {
         run.setFinishedAt(null);
         billingAuditRunMapper.insert(run);
         try {
-            BillingRawLineCollectionResult result = aliyunBillingRawLineCollector.collectStableDay(run, cloudAccount);
+            BillingRawLineCollectionResult rawLineResult = aliyunBillingRawLineCollector.collectStableDay(run, cloudAccount);
+            BillingAuditAggregationResult aggregationResult = billingAuditItemAggregator.aggregate(run);
             run.setStatus("SUCCESS");
-            run.setItemCount(result.getRawLineCount());
-            run.setUnknownItemCount(0);
-            run.setTotalPretaxAmount(result.getTotalPretaxAmount());
-            run.setUnknownPretaxAmount(BigDecimal.ZERO);
-            run.setMessage("Collected " + result.getRawLineCount() + " raw billing lines from DescribeInstanceBill.");
+            run.setItemCount(aggregationResult.getItemCount());
+            run.setUnknownItemCount(aggregationResult.getUnknownItemCount());
+            run.setTotalPretaxAmount(aggregationResult.getTotalPretaxAmount());
+            run.setUnknownPretaxAmount(aggregationResult.getUnknownPretaxAmount());
+            run.setMessage("Collected " + rawLineResult.getRawLineCount() + " bill-date raw lines and aggregated "
+                + aggregationResult.getItemCount() + " audit items.");
         } catch (RuntimeException exception) {
             run.setStatus("FAILED");
             run.setMessage(exception.getMessage());
@@ -86,5 +92,14 @@ public class BillingAuditService {
     public List<BillingAuditItemDO> listItems(Long runId) {
         get(runId);
         return billingAuditItemMapper.selectByRunId(runId);
+    }
+
+    public List<BillingAuditItemResourceResponse> listItemResources(Long runId, Long itemId) {
+        get(runId);
+        BillingAuditItemDO item = billingAuditItemMapper.selectById(itemId);
+        if (item == null || !runId.equals(item.getRunId())) {
+            throw new NotFoundException("billing_audit_item", itemId);
+        }
+        return billingAuditRawLineMapper.selectResourcesByAuditItem(item);
     }
 }

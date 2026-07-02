@@ -13,9 +13,7 @@ public class BillingAuditRunRequest {
     @NotNull
     private LocalDate billDate;
 
-    @NotNull
     private LocalDate periodStartDate;
 
-    @NotNull
     private LocalDate periodEndDate;
 }

@@ -101,6 +101,22 @@ export interface BillingAuditItem {
   updatedAt?: string;
 }
 
+export interface BillingAuditItemResource {
+  rawLineId: number;
+  billDate: string;
+  instanceId?: string;
+  instanceName?: string;
+  region?: string;
+  zone?: string;
+  resourceGroup?: string;
+  costUnit?: string;
+  billingType?: string;
+  usageAmount?: number;
+  usageUnit?: string;
+  pretaxAmount?: number;
+  currency?: string;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
     headers: {
@@ -144,8 +160,10 @@ export const api = {
     request<BillingItemRule>(`/api/billing-item-rules/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteBillingItemRule: (id: number) => request<void>(`/api/billing-item-rules/${id}`, { method: 'DELETE' }),
 
-  triggerBillingAudit: (payload: { cloudAccountId: number; billDate: string; periodStartDate: string; periodEndDate: string }) =>
+  triggerBillingAudit: (payload: { cloudAccountId: number; billDate: string; periodStartDate?: string; periodEndDate?: string }) =>
     request<BillingAuditRun>('/api/billing-audits', { method: 'POST', body: JSON.stringify(payload) }),
   listBillingAudits: () => request<BillingAuditRun[]>('/api/billing-audits'),
-  listBillingAuditItems: (id: number) => request<BillingAuditItem[]>(`/api/billing-audits/${id}/items`)
+  listBillingAuditItems: (id: number) => request<BillingAuditItem[]>(`/api/billing-audits/${id}/items`),
+  listBillingAuditItemResources: (runId: number, itemId: number) =>
+    request<BillingAuditItemResource[]>(`/api/billing-audits/${runId}/items/${itemId}/resources`)
 };

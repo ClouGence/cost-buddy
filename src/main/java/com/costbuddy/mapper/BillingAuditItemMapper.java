@@ -8,4 +8,6 @@ import org.apache.ibatis.annotations.Param;
 public interface BillingAuditItemMapper extends BaseMapper<BillingAuditItemDO> {
 
     List<BillingAuditItemDO> selectByRunId(@Param("runId") Long runId);
+
+    int deleteByRunId(@Param("runId") Long runId);
 }
