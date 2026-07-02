@@ -3,6 +3,7 @@ package com.costbuddy.controller;
 import com.costbuddy.common.api.ApiResponse;
 import com.costbuddy.domain.CloudAccountDO;
 import com.costbuddy.dto.request.CloudAccountRequest;
+import com.costbuddy.dto.response.CloudAccountCheckResponse;
 import com.costbuddy.service.CloudAccountService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -41,6 +42,11 @@ public class CloudAccountController {
     @PutMapping("/{id}")
     public ApiResponse<CloudAccountDO> update(@PathVariable Long id, @Valid @RequestBody CloudAccountRequest request) {
         return ApiResponse.ok(cloudAccountService.update(id, request));
+    }
+
+    @PostMapping("/{id}/check")
+    public ApiResponse<CloudAccountCheckResponse> check(@PathVariable Long id) {
+        return ApiResponse.ok(cloudAccountService.check(id));
     }
 
     @DeleteMapping("/{id}")

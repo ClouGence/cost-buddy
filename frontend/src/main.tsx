@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AiEngine, BillingAuditItem, BillingAuditRun, BillingItemRule, CloudAccount, api } from './api';
+import { AiEngine, BillingAuditItem, BillingAuditRun, BillingItemRule, CloudAccount, CloudAccountCheck, api } from './api';
 import './styles.css';
 
 type Tab = 'audits' | 'accounts' | 'rules' | 'ai';
@@ -69,6 +69,12 @@ const TEXT = {
       noAccounts: '暂无账号',
       saved: '账号已保存',
       saveFailed: '保存账号失败',
+      checkAvailable: '账单 API 可访问',
+      checkUnavailable: '账单 API 检查失败',
+      checkFailed: '检查云账号失败',
+      checkBillingCycle: '账期',
+      checkAccountId: '账号 ID',
+      checkTotalCount: '返回记录数',
       deleted: '账号已删除',
       deleteFailed: '删除账号失败'
     },
@@ -190,6 +196,12 @@ const TEXT = {
       noAccounts: 'No accounts',
       saved: 'Account saved',
       saveFailed: 'Save account failed',
+      checkAvailable: 'Billing API is available',
+      checkUnavailable: 'Billing API check failed',
+      checkFailed: 'Check cloud account failed',
+      checkBillingCycle: 'Billing cycle',
+      checkAccountId: 'Account ID',
+      checkTotalCount: 'Returned records',
       deleted: 'Account deleted',
       deleteFailed: 'Delete account failed'
     },
@@ -573,6 +585,15 @@ function AccountWorkspace({
     }
   }
 
+  async function checkAccount(id: number) {
+    try {
+      const result = await api.checkCloudAccount(id);
+      onStatus(formatCloudAccountCheck(result, text));
+    } catch (error) {
+      onStatus(error instanceof Error ? error.message : text.accounts.checkFailed);
+    }
+  }
+
   return (
     <>
       <section className="panel form-panel">
@@ -616,13 +637,14 @@ function AccountWorkspace({
           <h2>{text.accounts.accounts}</h2>
         </div>
         <SimpleTable
-          headers={[text.accounts.name, text.accounts.provider, text.accounts.accessKeyId, text.accounts.billOwnerId, text.accounts.enabled, '']}
+          headers={[text.accounts.name, text.accounts.provider, text.accounts.accessKeyId, text.accounts.billOwnerId, text.accounts.enabled, '', '']}
           rows={accounts.map(account => [
             account.name,
             formatProvider(account.provider, text),
             account.accessKeyId || '-',
             account.billOwnerId ?? '-',
             account.enabled ? text.common.yes : text.common.no,
+            <button onClick={() => void checkAccount(account.id)}>{text.common.check}</button>,
             <button className="danger" onClick={() => void deleteAccount(account.id)}>{text.common.delete}</button>
           ])}
           emptyLabel={text.accounts.noAccounts}
@@ -938,6 +960,21 @@ function formatScope(scope: string, text: UiText) {
 
 function formatProvider(provider: string, text: UiText) {
   return (text.providers as Record<string, string>)[provider] ?? provider;
+}
+
+function formatCloudAccountCheck(result: CloudAccountCheck, text: UiText) {
+  if (!result.available) {
+    return `${text.accounts.checkUnavailable}: ${result.message}`;
+  }
+  const details = [
+    result.billingCycle ? `${text.accounts.checkBillingCycle}: ${result.billingCycle}` : '',
+    result.accountId ? `${text.accounts.checkAccountId}: ${result.accountId}` : '',
+    result.totalCount !== undefined ? `${text.accounts.checkTotalCount}: ${result.totalCount}` : ''
+  ].filter(Boolean);
+  if (!details.length) {
+    return text.accounts.checkAvailable;
+  }
+  return `${text.accounts.checkAvailable}: ${details.join(' / ')}`;
 }
 
 createRoot(document.getElementById('root')!).render(

@@ -16,6 +16,16 @@ export interface CloudAccount {
   updatedAt?: string;
 }
 
+export interface CloudAccountCheck {
+  available: boolean;
+  message: string;
+  requestId?: string;
+  billingCycle?: string;
+  accountId?: string;
+  accountName?: string;
+  totalCount?: number;
+}
+
 export interface AiEngine {
   id: number;
   name: string;
@@ -116,6 +126,7 @@ export const api = {
     request<CloudAccount>('/api/cloud-accounts', { method: 'POST', body: JSON.stringify(payload) }),
   updateCloudAccount: (id: number, payload: Omit<CloudAccount, 'id' | 'createdAt' | 'updatedAt'> & { accessKeySecret?: string }) =>
     request<CloudAccount>(`/api/cloud-accounts/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  checkCloudAccount: (id: number) => request<CloudAccountCheck>(`/api/cloud-accounts/${id}/check`, { method: 'POST' }),
   deleteCloudAccount: (id: number) => request<void>(`/api/cloud-accounts/${id}`, { method: 'DELETE' }),
 
   listAiEngines: () => request<AiEngine[]>('/api/ai-engines'),

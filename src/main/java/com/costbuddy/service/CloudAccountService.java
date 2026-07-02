@@ -1,8 +1,10 @@
 package com.costbuddy.service;
 
+import com.costbuddy.aliyun.AliyunBssOpenApiClient;
 import com.costbuddy.common.exception.NotFoundException;
 import com.costbuddy.domain.CloudAccountDO;
 import com.costbuddy.dto.request.CloudAccountRequest;
+import com.costbuddy.dto.response.CloudAccountCheckResponse;
 import com.costbuddy.mapper.CloudAccountMapper;
 import java.util.List;
 import org.springframework.beans.BeanUtils;
@@ -14,10 +16,12 @@ public class CloudAccountService {
 
     private static final String RESOURCE_NAME = "cloud_account";
 
-    private final CloudAccountMapper cloudAccountMapper;
+    private final CloudAccountMapper      cloudAccountMapper;
+    private final AliyunBssOpenApiClient aliyunBssOpenApiClient;
 
-    public CloudAccountService(CloudAccountMapper cloudAccountMapper) {
+    public CloudAccountService(CloudAccountMapper cloudAccountMapper, AliyunBssOpenApiClient aliyunBssOpenApiClient) {
         this.cloudAccountMapper = cloudAccountMapper;
+        this.aliyunBssOpenApiClient = aliyunBssOpenApiClient;
     }
 
     @Transactional
@@ -39,6 +43,10 @@ public class CloudAccountService {
 
     public List<CloudAccountDO> list() {
         return cloudAccountMapper.selectAll();
+    }
+
+    public CloudAccountCheckResponse check(Long id) {
+        return aliyunBssOpenApiClient.checkAccess(get(id));
     }
 
     @Transactional
