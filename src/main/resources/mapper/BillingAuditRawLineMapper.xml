@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.costbuddy.mapper.BillingAuditRawLineMapper">
+
+    <resultMap id="BillingAuditRawLineResultMap" type="com.costbuddy.domain.BillingAuditRawLineDO">
+        <id column="id" property="id"/>
+        <result column="run_id" property="runId"/>
+        <result column="provider" property="provider"/>
+        <result column="source_api" property="sourceApi"/>
+        <result column="source_billing_cycle" property="sourceBillingCycle"/>
+        <result column="bill_date" property="billDate"/>
+        <result column="line_hash" property="lineHash"/>
+        <result column="bill_account_id" property="billAccountId"/>
+        <result column="bill_owner_id" property="billOwnerId"/>
+        <result column="payer_account_id" property="payerAccountId"/>
+        <result column="product_code" property="productCode"/>
+        <result column="product_name" property="productName"/>
+        <result column="product_detail_code" property="productDetailCode"/>
+        <result column="product_detail" property="productDetail"/>
+        <result column="commodity_code" property="commodityCode"/>
+        <result column="commodity_name" property="commodityName"/>
+        <result column="billing_item_code" property="billingItemCode"/>
+        <result column="billing_item" property="billingItem"/>
+        <result column="billing_type" property="billingType"/>
+        <result column="subscription_type" property="subscriptionType"/>
+        <result column="instance_id" property="instanceId"/>
+        <result column="instance_name" property="instanceName"/>
+        <result column="region" property="region"/>
+        <result column="zone" property="zone"/>
+        <result column="resource_group" property="resourceGroup"/>
+        <result column="cost_unit" property="costUnit"/>
+        <result column="usage_amount" property="usageAmount"/>
+        <result column="usage_unit" property="usageUnit"/>
+        <result column="pretax_gross_amount" property="pretaxGrossAmount"/>
+        <result column="invoice_discount" property="invoiceDiscount"/>
+        <result column="deductible_amount" property="deductibleAmount"/>
+        <result column="pretax_amount" property="pretaxAmount"/>
+        <result column="cash_amount" property="cashAmount"/>
+        <result column="payment_amount" property="paymentAmount"/>
+        <result column="outstanding_amount" property="outstandingAmount"/>
+        <result column="currency" property="currency"/>
+        <result column="tags" property="tags"/>
+        <result column="raw_payload" property="rawPayload"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="BaseColumnList">id, run_id, provider, source_api, source_billing_cycle, bill_date, line_hash, bill_account_id, bill_owner_id, payer_account_id, product_code, product_name, product_detail_code, product_detail, commodity_code, commodity_name, billing_item_code, billing_item, billing_type, subscription_type, instance_id, instance_name, region, zone, resource_group, cost_unit, usage_amount, usage_unit, pretax_gross_amount, invoice_discount, deductible_amount, pretax_amount, cash_amount, payment_amount, outstanding_amount, currency, tags, raw_payload, created_at, updated_at</sql>
+
+    <select id="selectById" resultMap="BillingAuditRawLineResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_audit_raw_line WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BillingAuditRawLineResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_audit_raw_line ORDER BY id DESC
+    </select>
+
+    <select id="selectByRunId" resultMap="BillingAuditRawLineResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_audit_raw_line WHERE run_id = #{runId} ORDER BY id ASC
+    </select>
+
+    <insert id="insert" parameterType="com.costbuddy.domain.BillingAuditRawLineDO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO billing_audit_raw_line (
+            run_id,
+            provider,
+            source_api,
+            source_billing_cycle,
+            bill_date,
+            line_hash,
+            bill_account_id,
+            bill_owner_id,
+            payer_account_id,
+            product_code,
+            product_name,
+            product_detail_code,
+            product_detail,
+            commodity_code,
+            commodity_name,
+            billing_item_code,
+            billing_item,
+            billing_type,
+            subscription_type,
+            instance_id,
+            instance_name,
+            region,
+            zone,
+            resource_group,
+            cost_unit,
+            usage_amount,
+            usage_unit,
+            pretax_gross_amount,
+            invoice_discount,
+            deductible_amount,
+            pretax_amount,
+            cash_amount,
+            payment_amount,
+            outstanding_amount,
+            currency,
+            tags,
+            raw_payload
+        )
+        VALUES (
+            #{runId},
+            #{provider},
+            #{sourceApi},
+            #{sourceBillingCycle},
+            #{billDate},
+            #{lineHash},
+            #{billAccountId},
+            #{billOwnerId},
+            #{payerAccountId},
+            #{productCode},
+            #{productName},
+            #{productDetailCode},
+            #{productDetail},
+            #{commodityCode},
+            #{commodityName},
+            #{billingItemCode},
+            #{billingItem},
+            #{billingType},
+            #{subscriptionType},
+            #{instanceId},
+            #{instanceName},
+            #{region},
+            #{zone},
+            #{resourceGroup},
+            #{costUnit},
+            #{usageAmount},
+            #{usageUnit},
+            #{pretaxGrossAmount},
+            #{invoiceDiscount},
+            #{deductibleAmount},
+            #{pretaxAmount},
+            #{cashAmount},
+            #{paymentAmount},
+            #{outstandingAmount},
+            #{currency},
+            #{tags},
+            #{rawPayload}
+        )
+    </insert>
+
+    <update id="update" parameterType="com.costbuddy.domain.BillingAuditRawLineDO">
+        UPDATE billing_audit_raw_line
+        SET run_id = #{runId},
+            provider = #{provider},
+            source_api = #{sourceApi},
+            source_billing_cycle = #{sourceBillingCycle},
+            bill_date = #{billDate},
+            line_hash = #{lineHash},
+            bill_account_id = #{billAccountId},
+            bill_owner_id = #{billOwnerId},
+            payer_account_id = #{payerAccountId},
+            product_code = #{productCode},
+            product_name = #{productName},
+            product_detail_code = #{productDetailCode},
+            product_detail = #{productDetail},
+            commodity_code = #{commodityCode},
+            commodity_name = #{commodityName},
+            billing_item_code = #{billingItemCode},
+            billing_item = #{billingItem},
+            billing_type = #{billingType},
+            subscription_type = #{subscriptionType},
+            instance_id = #{instanceId},
+            instance_name = #{instanceName},
+            region = #{region},
+            zone = #{zone},
+            resource_group = #{resourceGroup},
+            cost_unit = #{costUnit},
+            usage_amount = #{usageAmount},
+            usage_unit = #{usageUnit},
+            pretax_gross_amount = #{pretaxGrossAmount},
+            invoice_discount = #{invoiceDiscount},
+            deductible_amount = #{deductibleAmount},
+            pretax_amount = #{pretaxAmount},
+            cash_amount = #{cashAmount},
+            payment_amount = #{paymentAmount},
+            outstanding_amount = #{outstandingAmount},
+            currency = #{currency},
+            tags = #{tags},
+            raw_payload = #{rawPayload}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM billing_audit_raw_line WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByRunId">
+        DELETE FROM billing_audit_raw_line WHERE run_id = #{runId}
+    </delete>
+</mapper>
