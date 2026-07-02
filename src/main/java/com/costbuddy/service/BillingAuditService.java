@@ -1,18 +1,23 @@
 package com.costbuddy.service;
 
+import com.costbuddy.common.exception.BusinessException;
 import com.costbuddy.common.exception.NotFoundException;
 import com.costbuddy.domain.BillingAuditItemDO;
 import com.costbuddy.domain.BillingAuditRunDO;
+import com.costbuddy.domain.BillingItemRuleDO;
 import com.costbuddy.domain.CloudAccountDO;
+import com.costbuddy.dto.request.BillingAuditItemRuleRequest;
 import com.costbuddy.dto.request.BillingAuditRunRequest;
 import com.costbuddy.dto.response.BillingAuditItemResourceResponse;
 import com.costbuddy.mapper.BillingAuditItemMapper;
 import com.costbuddy.mapper.BillingAuditRawLineMapper;
 import com.costbuddy.mapper.BillingAuditRunMapper;
+import com.costbuddy.mapper.BillingItemRuleMapper;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class BillingAuditService {
@@ -25,6 +30,9 @@ public class BillingAuditService {
     private final BillingAuditRunMapper          billingAuditRunMapper;
     private final BillingAuditItemMapper         billingAuditItemMapper;
     private final BillingAuditRawLineMapper      billingAuditRawLineMapper;
+    private final BillingItemRuleMapper          billingItemRuleMapper;
+    private final BillingItemRuleMatcher         billingItemRuleMatcher;
+    private final BillingItemRuleService         billingItemRuleService;
 
     public BillingAuditService(
         CloudAccountService cloudAccountService,
@@ -32,7 +40,10 @@ public class BillingAuditService {
         BillingAuditItemAggregator billingAuditItemAggregator,
         BillingAuditRunMapper billingAuditRunMapper,
         BillingAuditItemMapper billingAuditItemMapper,
-        BillingAuditRawLineMapper billingAuditRawLineMapper
+        BillingAuditRawLineMapper billingAuditRawLineMapper,
+        BillingItemRuleMapper billingItemRuleMapper,
+        BillingItemRuleMatcher billingItemRuleMatcher,
+        BillingItemRuleService billingItemRuleService
     ) {
         this.cloudAccountService = cloudAccountService;
         this.aliyunBillingRawLineCollector = aliyunBillingRawLineCollector;
@@ -40,6 +51,9 @@ public class BillingAuditService {
         this.billingAuditRunMapper = billingAuditRunMapper;
         this.billingAuditItemMapper = billingAuditItemMapper;
         this.billingAuditRawLineMapper = billingAuditRawLineMapper;
+        this.billingItemRuleMapper = billingItemRuleMapper;
+        this.billingItemRuleMatcher = billingItemRuleMatcher;
+        this.billingItemRuleService = billingItemRuleService;
     }
 
     public BillingAuditRunDO trigger(BillingAuditRunRequest request) {
@@ -101,5 +115,44 @@ public class BillingAuditService {
             throw new NotFoundException("billing_audit_item", itemId);
         }
         return billingAuditRawLineMapper.selectResourcesByAuditItem(item);
+    }
+
+    @Transactional
+    public BillingItemRuleDO createRuleFromItem(Long runId, Long itemId, BillingAuditItemRuleRequest request) {
+        if (!"BILLING_ITEM".equals(request.getMatchScope()) || !"IGNORED".equals(request.getDecision())) {
+            throw new BusinessException("UNSUPPORTED_AUDIT_ITEM_RULE", "Only BILLING_ITEM ignored rules can be created from audit items");
+        }
+        BillingAuditItemDO item = getItemInRun(runId, itemId);
+        BillingItemRuleDO rule = billingItemRuleService.createFromAuditItem(item, request);
+        applyRules(runId);
+        return rule;
+    }
+
+    @Transactional
+    public BillingAuditRunDO applyRules(Long runId) {
+        BillingAuditRunDO run = get(runId);
+        List<BillingItemRuleDO> rules = billingItemRuleMatcher.sortRules(billingItemRuleMapper.selectAll());
+        BillingAuditAggregationResult result = new BillingAuditAggregationResult();
+        for (BillingAuditItemDO item : billingAuditItemMapper.selectByRunId(runId)) {
+            String decision = billingItemRuleMatcher.decide(item, rules);
+            item.setDecision(decision);
+            billingAuditItemMapper.update(item);
+            result.addItem(item.getPeriodPretaxAmount(), decision);
+        }
+        run.setItemCount(result.getItemCount());
+        run.setUnknownItemCount(result.getUnknownItemCount());
+        run.setTotalPretaxAmount(result.getTotalPretaxAmount());
+        run.setUnknownPretaxAmount(result.getUnknownPretaxAmount());
+        billingAuditRunMapper.update(run);
+        return get(runId);
+    }
+
+    private BillingAuditItemDO getItemInRun(Long runId, Long itemId) {
+        get(runId);
+        BillingAuditItemDO item = billingAuditItemMapper.selectById(itemId);
+        if (item == null || !runId.equals(item.getRunId())) {
+            throw new NotFoundException("billing_audit_item", itemId);
+        }
+        return item;
     }
 }

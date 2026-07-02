@@ -24,6 +24,10 @@
         SELECT <include refid="BaseColumnList"/> FROM billing_item_explanation ORDER BY id DESC
     </select>
 
+    <select id="selectByAuditItemId" resultMap="BillingItemExplanationResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_item_explanation WHERE audit_item_id = #{auditItemId} ORDER BY id DESC
+    </select>
+
     <insert id="insert" parameterType="com.costbuddy.domain.BillingItemExplanationDO" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO billing_item_explanation (audit_item_id, ai_engine_id, prompt_context, explanation)
         VALUES (#{auditItemId}, #{aiEngineId}, #{promptContext}, #{explanation})

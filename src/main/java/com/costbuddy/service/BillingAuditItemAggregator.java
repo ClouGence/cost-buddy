@@ -9,7 +9,6 @@ import com.costbuddy.mapper.BillingAuditRawLineMapper;
 import com.costbuddy.mapper.BillingItemRuleMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -25,21 +24,24 @@ public class BillingAuditItemAggregator {
     private final BillingAuditRawLineMapper billingAuditRawLineMapper;
     private final BillingAuditItemMapper    billingAuditItemMapper;
     private final BillingItemRuleMapper     billingItemRuleMapper;
+    private final BillingItemRuleMatcher    billingItemRuleMatcher;
 
     public BillingAuditItemAggregator(
         BillingAuditRawLineMapper billingAuditRawLineMapper,
         BillingAuditItemMapper billingAuditItemMapper,
-        BillingItemRuleMapper billingItemRuleMapper
+        BillingItemRuleMapper billingItemRuleMapper,
+        BillingItemRuleMatcher billingItemRuleMatcher
     ) {
         this.billingAuditRawLineMapper = billingAuditRawLineMapper;
         this.billingAuditItemMapper = billingAuditItemMapper;
         this.billingItemRuleMapper = billingItemRuleMapper;
+        this.billingItemRuleMatcher = billingItemRuleMatcher;
     }
 
     @Transactional
     public BillingAuditAggregationResult aggregate(BillingAuditRunDO run) {
         billingAuditItemMapper.deleteByRunId(run.getId());
-        List<BillingItemRuleDO> rules = sortRules(billingItemRuleMapper.selectAll());
+        List<BillingItemRuleDO> rules = billingItemRuleMatcher.sortRules(billingItemRuleMapper.selectAll());
         Map<AggregationKey, ItemAccumulator> accumulators = new LinkedHashMap<>();
         for (BillingAuditRawLineDO rawLine : billingAuditRawLineMapper.selectByRunId(run.getId())) {
             AggregationKey key = AggregationKey.from(rawLine);
@@ -55,65 +57,6 @@ public class BillingAuditItemAggregator {
                 result.addItem(item.getPeriodPretaxAmount(), item.getDecision());
             });
         return result;
-    }
-
-    private List<BillingItemRuleDO> sortRules(List<BillingItemRuleDO> rules) {
-        List<BillingItemRuleDO> sortedRules = new ArrayList<>(rules);
-        sortedRules.sort(Comparator
-            .comparingInt((BillingItemRuleDO rule) -> "BILLING_ITEM".equals(rule.getMatchScope()) ? 0 : 1)
-            .thenComparing(rule -> rule.getId() == null ? 0L : -rule.getId()));
-        return sortedRules;
-    }
-
-    private String decide(BillingAuditItemDO item, List<BillingItemRuleDO> rules) {
-        for (BillingItemRuleDO rule : rules) {
-            if (matches(rule, item)) {
-                return isBlank(rule.getDecision()) ? "UNKNOWN" : rule.getDecision();
-            }
-        }
-        return "UNKNOWN";
-    }
-
-    private boolean matches(BillingItemRuleDO rule, BillingAuditItemDO item) {
-        if (!equalsValue(rule.getProvider(), item.getProvider())) {
-            return false;
-        }
-        if ("BILLING_ITEM".equals(rule.getMatchScope())) {
-            return hasAnyBillingItemRuleField(rule)
-                && fieldMatches(rule.getProductCode(), item.getProductCode())
-                && fieldMatches(rule.getProductName(), item.getProductName())
-                && fieldMatches(rule.getProductDetail(), item.getProductDetail())
-                && fieldMatches(rule.getCommodityCode(), item.getCommodityCode())
-                && fieldMatches(rule.getBillingItemCode(), item.getBillingItemCode())
-                && fieldMatches(rule.getBillingItem(), item.getBillingItem());
-        }
-        return hasAnyProductRuleField(rule)
-            && fieldMatches(rule.getProductCode(), item.getProductCode())
-            && fieldMatches(rule.getProductName(), item.getProductName())
-            && fieldMatches(rule.getProductDetail(), item.getProductDetail())
-            && fieldMatches(rule.getCommodityCode(), item.getCommodityCode());
-    }
-
-    private boolean hasAnyBillingItemRuleField(BillingItemRuleDO rule) {
-        return hasAnyProductRuleField(rule) || !isBlank(rule.getBillingItemCode()) || !isBlank(rule.getBillingItem());
-    }
-
-    private boolean hasAnyProductRuleField(BillingItemRuleDO rule) {
-        return !isBlank(rule.getProductCode())
-            || !isBlank(rule.getProductName())
-            || !isBlank(rule.getProductDetail())
-            || !isBlank(rule.getCommodityCode());
-    }
-
-    private boolean fieldMatches(String ruleValue, String itemValue) {
-        return isBlank(ruleValue) || equalsValue(ruleValue, itemValue);
-    }
-
-    private boolean equalsValue(String first, String second) {
-        if (first == null || second == null) {
-            return first == second;
-        }
-        return first.trim().equals(second.trim());
     }
 
     private String firstNotBlank(String current, String candidate) {
@@ -217,7 +160,7 @@ public class BillingAuditItemAggregator {
             item.setSampleRegion(sampleRegion);
             item.setSampleUsage(sampleUsage);
             item.setSampleUsageUnit(sampleUsageUnit);
-            item.setDecision(decide(item, rules));
+            item.setDecision(billingItemRuleMatcher.decide(item, rules));
             return item;
         }
 

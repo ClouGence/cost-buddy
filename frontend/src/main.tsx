@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AiEngine, BillingAuditItem, BillingAuditItemResource, BillingAuditRun, BillingItemRule, CloudAccount, CloudAccountCheck, api } from './api';
+import { AiEngine, BillingAuditItem, BillingAuditItemResource, BillingAuditRun, BillingItemExplanation, BillingItemRule, CloudAccount, CloudAccountCheck, api } from './api';
 import './styles.css';
 
 type Tab = 'audits' | 'accounts' | 'rules' | 'ai';
@@ -12,6 +12,7 @@ const TEXT = {
       refresh: '刷新',
       switchLanguage: '切换语言',
       delete: '删除',
+      close: '关闭',
       check: '检查',
       previous: '上一页',
       next: '下一页',
@@ -49,6 +50,20 @@ const TEXT = {
       backToAuditRuns: '回到审计列表',
       resourceDetails: '资源明细',
       backToAuditItems: '回到审计项',
+      aiExplain: '优化说明',
+      aiExplanation: '优化说明',
+      aiEngineRequired: '请先选择 AI 引擎',
+      explanationCreated: '优化说明已生成',
+      explainFailed: '生成优化说明失败',
+      loadExplanationsFailed: '加载优化说明失败',
+      noExplanations: '暂无优化说明',
+      aiAnalyzing: 'AI 分析中',
+      ignoreBillingItem: '忽略计费项',
+      applyRules: '应用规则',
+      ruleCreated: '规则已创建并应用',
+      createRuleFailed: '创建规则失败',
+      rulesApplied: '规则已应用',
+      applyRulesFailed: '应用规则失败',
       instanceId: '资源 ID',
       instanceName: '资源名称',
       region: '地域',
@@ -152,6 +167,7 @@ const TEXT = {
       refresh: 'Refresh',
       switchLanguage: 'Switch language',
       delete: 'Delete',
+      close: 'Close',
       check: 'Check',
       previous: 'Previous',
       next: 'Next',
@@ -189,6 +205,20 @@ const TEXT = {
       backToAuditRuns: 'Back to Audit Runs',
       resourceDetails: 'Resources',
       backToAuditItems: 'Back to Items',
+      aiExplain: 'Optimization Notes',
+      aiExplanation: 'Optimization Notes',
+      aiEngineRequired: 'Select an AI engine first',
+      explanationCreated: 'Optimization notes generated',
+      explainFailed: 'Generate optimization notes failed',
+      loadExplanationsFailed: 'Load optimization notes failed',
+      noExplanations: 'No optimization notes',
+      aiAnalyzing: 'AI analyzing',
+      ignoreBillingItem: 'Ignore Item',
+      applyRules: 'Apply Rules',
+      ruleCreated: 'Rule created and applied',
+      createRuleFailed: 'Create rule failed',
+      rulesApplied: 'Rules applied',
+      applyRulesFailed: 'Apply rules failed',
       instanceId: 'Resource ID',
       instanceName: 'Resource Name',
       region: 'Region',
@@ -403,7 +433,7 @@ function App() {
       </header>
       {status && <div className="toast">{status}</div>}
       <main className={`workspace ${tab === 'audits' ? 'audit-workspace' : ''}`}>
-        {tab === 'audits' && <AuditWorkspace accounts={accounts} runs={runs} onReload={loadAll} onStatus={setStatus} text={text} />}
+        {tab === 'audits' && <AuditWorkspace accounts={accounts} runs={runs} aiEngines={aiEngines} onReload={loadAll} onStatus={setStatus} text={text} />}
         {tab === 'accounts' && <AccountWorkspace accounts={accounts} onReload={loadAll} onStatus={setStatus} text={text} />}
         {tab === 'rules' && <RuleWorkspace rules={rules} onReload={loadAll} onStatus={setStatus} text={text} />}
         {tab === 'ai' && <AiWorkspace aiEngines={aiEngines} onReload={loadAll} onStatus={setStatus} text={text} />}
@@ -415,12 +445,14 @@ function App() {
 function AuditWorkspace({
   accounts,
   runs,
+  aiEngines,
   onReload,
   onStatus,
   text
 }: {
   accounts: CloudAccount[];
   runs: BillingAuditRun[];
+  aiEngines: AiEngine[];
   onReload: (showSuccess?: boolean) => Promise<void>;
   onStatus: (message: string) => void;
   text: UiText;
@@ -431,6 +463,12 @@ function AuditWorkspace({
   const [items, setItems] = useState<BillingAuditItem[]>([]);
   const [resourceItemId, setResourceItemId] = useState<number | null>(null);
   const [resources, setResources] = useState<BillingAuditItemResource[]>([]);
+  const [explanationItemId, setExplanationItemId] = useState<number | null>(null);
+  const [explanations, setExplanations] = useState<BillingItemExplanation[]>([]);
+  const [explanationError, setExplanationError] = useState('');
+  const [explanationModalOpen, setExplanationModalOpen] = useState(false);
+  const [selectedAiEngineId, setSelectedAiEngineId] = useState('');
+  const [explainingItemId, setExplainingItemId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
 
   const accountById = useMemo(() => new Map(accounts.map(account => [account.id, account])), [accounts]);
@@ -438,12 +476,23 @@ function AuditWorkspace({
   const pagedRuns = useMemo(() => runs.slice((page - 1) * pageSize, page * pageSize), [page, runs]);
   const detailRun = useMemo(() => runs.find(run => run.id === detailRunId) ?? null, [detailRunId, runs]);
   const resourceItem = useMemo(() => items.find(item => item.id === resourceItemId) ?? null, [items, resourceItemId]);
+  const explanationItem = useMemo(() => items.find(item => item.id === explanationItemId) ?? null, [explanationItemId, items]);
 
   useEffect(() => {
     if (!form.cloudAccountId && accounts[0]) {
       setForm(current => ({ ...current, cloudAccountId: String(accounts[0].id) }));
     }
   }, [accounts, form.cloudAccountId]);
+
+  useEffect(() => {
+    if (aiEngines.length === 0) {
+      setSelectedAiEngineId('');
+      return;
+    }
+    if (!aiEngines.some(aiEngine => String(aiEngine.id) === selectedAiEngineId)) {
+      setSelectedAiEngineId(String(aiEngines[0].id));
+    }
+  }, [aiEngines, selectedAiEngineId]);
 
   useEffect(() => {
     if (page > pageCount) {
@@ -455,6 +504,8 @@ function AuditWorkspace({
     if (detailRunId === null) {
       setItems([]);
       setResourceItemId(null);
+      setExplanationItemId(null);
+      setExplanationModalOpen(false);
       return;
     }
     api.listBillingAuditItems(detailRunId)
@@ -492,6 +543,75 @@ function AuditWorkspace({
       await onReload();
     } catch (error) {
       onStatus(error instanceof Error ? error.message : text.audit.createAuditFailed);
+    }
+  }
+
+  async function reloadAuditItems(runId: number) {
+    const nextItems = await api.listBillingAuditItems(runId);
+    setItems(nextItems);
+  }
+
+  async function createRuleFromItem(item: BillingAuditItem, matchScope: string, decision: string) {
+    if (detailRunId === null) {
+      return;
+    }
+    try {
+      await api.createBillingAuditItemRule(detailRunId, item.id, { matchScope, decision });
+      await reloadAuditItems(detailRunId);
+      await onReload(false);
+      onStatus(text.audit.ruleCreated);
+    } catch (error) {
+      onStatus(error instanceof Error ? error.message : text.audit.createRuleFailed);
+    }
+  }
+
+  async function applyCurrentRules() {
+    if (detailRunId === null) {
+      return;
+    }
+    try {
+      await api.applyBillingAuditRules(detailRunId);
+      await reloadAuditItems(detailRunId);
+      await onReload(false);
+      onStatus(text.audit.rulesApplied);
+    } catch (error) {
+      onStatus(error instanceof Error ? error.message : text.audit.applyRulesFailed);
+    }
+  }
+
+  async function explainItem(item: BillingAuditItem) {
+    if (detailRunId === null) {
+      return;
+    }
+    if (!selectedAiEngineId) {
+      onStatus(text.audit.aiEngineRequired);
+      return;
+    }
+    try {
+      setExplanationItemId(item.id);
+      setExplanationModalOpen(true);
+      setExplanations([]);
+      setExplanationError('');
+      setExplainingItemId(item.id);
+      setResourceItemId(null);
+      const explanation = await api.explainBillingAuditItem(detailRunId, item.id, Number(selectedAiEngineId));
+      setExplanations([explanation]);
+      onStatus(text.audit.explanationCreated);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : text.audit.explainFailed;
+      setExplanationError(message);
+      onStatus(message);
+    } finally {
+      setExplainingItemId(null);
+    }
+  }
+
+  function closeExplanationModal() {
+    setExplanationModalOpen(false);
+    if (explainingItemId === null) {
+      setExplanationItemId(null);
+      setExplanations([]);
+      setExplanationError('');
     }
   }
 
@@ -536,39 +656,73 @@ function AuditWorkspace({
       );
     }
     return (
-      <section className="panel table-panel audit-detail-panel">
-        <div className="panel-title">
-          <h2>{text.audit.runItems}{detailRun ? ` #${detailRun.id}` : ''}</h2>
-          <button onClick={() => setDetailRunId(null)}>{text.audit.backToAuditRuns}</button>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>{text.audit.product}</th>
-                <th>{text.audit.detail}</th>
-                <th>{text.audit.billingItem}</th>
-                <th>{text.audit.periodAmount}</th>
-                <th>{text.audit.decision}</th>
-                <th>{text.audit.action}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map(item => (
-                <tr key={item.id}>
-                  <td>{item.productName || item.productCode || '-'}</td>
-                  <td>{item.productDetail || item.commodityCode || '-'}</td>
-                  <td>{item.billingItem || item.billingItemCode || '-'}</td>
-                  <td>{formatMoney(item.periodPretaxAmount)}</td>
-                  <td>{formatDecision(item.decision, text)}</td>
-                  <td><button onClick={() => setResourceItemId(item.id)}>{text.audit.resourceDetails}</button></td>
+      <>
+        <section className="panel table-panel audit-detail-panel">
+          <div className="panel-title">
+            <h2>{text.audit.runItems}{detailRun ? ` #${detailRun.id}` : ''}</h2>
+            <div className="panel-title-actions">
+              {aiEngines.length > 0 && (
+                <select className="compact-select" value={selectedAiEngineId} onChange={event => setSelectedAiEngineId(event.target.value)}>
+                  {aiEngines.map(aiEngine => (
+                    <option value={aiEngine.id} key={aiEngine.id}>{aiEngine.name}</option>
+                  ))}
+                </select>
+              )}
+              <button onClick={() => void applyCurrentRules()}>{text.audit.applyRules}</button>
+              <button onClick={() => setDetailRunId(null)}>{text.audit.backToAuditRuns}</button>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{text.audit.product}</th>
+                  <th>{text.audit.detail}</th>
+                  <th>{text.audit.billingItem}</th>
+                  <th>{text.audit.periodAmount}</th>
+                  <th>{text.audit.decision}</th>
+                  <th>{text.audit.action}</th>
                 </tr>
-              ))}
-              {!items.length && <EmptyRow colSpan={6} label={text.audit.noAuditItems} />}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <tbody>
+                {items.map(item => {
+                  const isNonZeroUnknown = item.decision === 'UNKNOWN' && Number(item.periodPretaxAmount) !== 0;
+                  return (
+                    <tr className={item.decision === 'UNKNOWN' ? (isNonZeroUnknown ? 'unknown-cost-row' : '') : 'resolved-audit-row'} key={item.id}>
+                      <td>{item.productName || item.productCode || '-'}</td>
+                      <td>{item.productDetail || item.commodityCode || '-'}</td>
+                      <td>{item.billingItem || item.billingItemCode || '-'}</td>
+                      <td className="audit-amount-cell">{formatAuditItemMoney(item.periodPretaxAmount)}</td>
+                      <td className="audit-decision-cell">{formatDecision(item.decision, text)}</td>
+                      <td>
+                        <div className="row-actions">
+                          <button onClick={() => void createRuleFromItem(item, 'BILLING_ITEM', 'IGNORED')}>{text.audit.ignoreBillingItem}</button>
+                          <button disabled={!aiEngines.length || explainingItemId !== null} onClick={() => void explainItem(item)}>{text.audit.aiExplain}</button>
+                          <button onClick={() => {
+                            setExplanationItemId(null);
+                            setResourceItemId(item.id);
+                          }}>{text.audit.resourceDetails}</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!items.length && <EmptyRow colSpan={6} label={text.audit.noAuditItems} />}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        {explanationModalOpen && (
+          <OptimizationExplanationModal
+            error={explanationError}
+            explanation={explanations[0]}
+            item={explanationItem}
+            loading={explainingItemId !== null}
+            onClose={closeExplanationModal}
+            text={text}
+          />
+        )}
+      </>
     );
   }
 
@@ -960,6 +1114,144 @@ function AiWorkspace({
   );
 }
 
+function OptimizationExplanationModal({
+  error,
+  explanation,
+  item,
+  loading,
+  onClose,
+  text
+}: {
+  error: string;
+  explanation?: BillingItemExplanation;
+  item: BillingAuditItem | null;
+  loading: boolean;
+  onClose: () => void;
+  text: UiText;
+}) {
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="optimization-modal-title">
+        <div className="modal-title">
+          <div>
+            <h2 id="optimization-modal-title">{text.audit.aiExplanation}</h2>
+            <p>{item ? `${item.productName || item.productCode || '-'} / ${item.billingItem || item.billingItemCode || '-'}` : '-'}</p>
+          </div>
+          <button onClick={onClose}>{text.common.close}</button>
+        </div>
+        <div className="modal-body">
+          {loading && (
+            <div className="modal-loading">
+              <span className="large-spinner" aria-hidden="true" />
+              <strong>{text.audit.aiAnalyzing}</strong>
+            </div>
+          )}
+          {!loading && error && <div className="modal-error">{error}</div>}
+          {!loading && !error && explanation && (
+            <article className="explanation-block">
+              <div className="explanation-meta">#{explanation.id} / {formatDateTime(explanation.createdAt)}</div>
+              <MarkdownContent markdown={explanation.explanation} />
+            </article>
+          )}
+          {!loading && !error && !explanation && <div className="empty-card">{text.audit.noExplanations}</div>}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MarkdownContent({ markdown }: { markdown: string }) {
+  const blocks: React.ReactNode[] = [];
+  let listItems: React.ReactNode[] = [];
+  let listType: 'ul' | 'ol' | null = null;
+
+  function flushList(key: string) {
+    if (!listType || listItems.length === 0) {
+      return;
+    }
+    const ListTag = listType;
+    blocks.push(<ListTag key={key}>{listItems}</ListTag>);
+    listItems = [];
+    listType = null;
+  }
+
+  markdown.split(/\r?\n/).forEach((line, index) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushList(`list-${index}`);
+      return;
+    }
+    const heading = /^(#{1,4})\s+(.+)$/.exec(trimmed);
+    if (heading) {
+      flushList(`list-${index}`);
+      blocks.push(renderMarkdownHeading(index, Math.min(heading[1].length + 2, 6), heading[2]));
+      return;
+    }
+    const unordered = /^[-*]\s+(.+)$/.exec(trimmed);
+    if (unordered) {
+      if (listType !== 'ul') {
+        flushList(`list-${index}`);
+        listType = 'ul';
+      }
+      listItems.push(<li key={index}>{renderInlineMarkdown(unordered[1])}</li>);
+      return;
+    }
+    const ordered = /^\d+\.\s+(.+)$/.exec(trimmed);
+    if (ordered) {
+      if (listType !== 'ol') {
+        flushList(`list-${index}`);
+        listType = 'ol';
+      }
+      listItems.push(<li key={index}>{renderInlineMarkdown(ordered[1])}</li>);
+      return;
+    }
+    flushList(`list-${index}`);
+    blocks.push(<p key={index}>{renderInlineMarkdown(trimmed)}</p>);
+  });
+  flushList('list-end');
+
+  return <div className="markdown-body">{blocks}</div>;
+}
+
+function renderMarkdownHeading(key: number, level: number, content: string) {
+  const children = renderInlineMarkdown(content);
+  const className = content.includes('释放/关闭路径') ? 'markdown-danger-heading' : undefined;
+  if (level === 3) {
+    return <h3 className={className} key={key}>{children}</h3>;
+  }
+  if (level === 4) {
+    return <h4 className={className} key={key}>{children}</h4>;
+  }
+  if (level === 5) {
+    return <h5 className={className} key={key}>{children}</h5>;
+  }
+  return <h6 className={className} key={key}>{children}</h6>;
+}
+
+function renderInlineMarkdown(text: string) {
+  const nodes: React.ReactNode[] = [];
+  const pattern = /(`[^`]+`|\*\*[^*]+\*\*|https?:\/\/[^\s)]+)/g;
+  let lastIndex = 0;
+  text.replace(pattern, (match, _group, offset: number) => {
+    if (offset > lastIndex) {
+      nodes.push(text.slice(lastIndex, offset));
+    }
+    if (match.startsWith('`')) {
+      nodes.push(<code key={offset}>{match.slice(1, -1)}</code>);
+    } else if (match.startsWith('**')) {
+      nodes.push(<strong key={offset}>{match.slice(2, -2)}</strong>);
+    } else {
+      nodes.push(<a key={offset} href={match} target="_blank" rel="noreferrer">{match}</a>);
+    }
+    lastIndex = offset + match.length;
+    return match;
+  });
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+  return nodes;
+}
+
 function SimpleTable({
   headers,
   rows,
@@ -1041,6 +1333,14 @@ function emptyToUndefined(value: string) {
 
 function formatMoney(value: number | undefined) {
   return Number(value ?? 0).toFixed(2);
+}
+
+function formatAuditItemMoney(value: number | undefined) {
+  const amount = Number(value ?? 0);
+  if (amount !== 0 && Math.abs(amount) < 0.01) {
+    return amount.toFixed(6);
+  }
+  return amount.toFixed(2);
 }
 
 function formatPreciseMoney(value: number | undefined) {

@@ -1,7 +1,10 @@
 package com.costbuddy.service;
 
+import com.costbuddy.common.exception.BusinessException;
 import com.costbuddy.common.exception.NotFoundException;
+import com.costbuddy.domain.BillingAuditItemDO;
 import com.costbuddy.domain.BillingItemRuleDO;
+import com.costbuddy.dto.request.BillingAuditItemRuleRequest;
 import com.costbuddy.dto.request.BillingItemRuleRequest;
 import com.costbuddy.mapper.BillingItemRuleMapper;
 import java.util.List;
@@ -58,9 +61,53 @@ public class BillingItemRuleService {
         billingItemRuleMapper.deleteById(id);
     }
 
+    @Transactional
+    public BillingItemRuleDO createFromAuditItem(BillingAuditItemDO item, BillingAuditItemRuleRequest request) {
+        BillingItemRuleDO rule = new BillingItemRuleDO();
+        rule.setProvider(item.getProvider());
+        rule.setMatchScope(request.getMatchScope());
+        rule.setProductCode(item.getProductCode());
+        rule.setProductName(item.getProductName());
+        rule.setProductDetail(item.getProductDetail());
+        rule.setCommodityCode(item.getCommodityCode());
+        if ("BILLING_ITEM".equals(request.getMatchScope())) {
+            rule.setBillingItemCode(item.getBillingItemCode());
+            rule.setBillingItem(item.getBillingItem());
+        }
+        rule.setDecision(request.getDecision());
+        rule.setNote(request.getNote());
+        normalize(rule);
+        billingItemRuleMapper.insert(rule);
+        return get(rule.getId());
+    }
+
     private void normalize(BillingItemRuleDO rule) {
-        if (rule.getProvider() == null || rule.getProvider().isBlank()) {
+        rule.setProvider(clean(rule.getProvider()));
+        rule.setMatchScope(clean(rule.getMatchScope()));
+        rule.setProductCode(clean(rule.getProductCode()));
+        rule.setProductName(clean(rule.getProductName()));
+        rule.setProductDetail(clean(rule.getProductDetail()));
+        rule.setCommodityCode(clean(rule.getCommodityCode()));
+        rule.setBillingItemCode(clean(rule.getBillingItemCode()));
+        rule.setBillingItem(clean(rule.getBillingItem()));
+        rule.setDecision(clean(rule.getDecision()));
+        rule.setNote(clean(rule.getNote()));
+        if (rule.getProvider() == null) {
             rule.setProvider("ALIYUN");
         }
+        if (!"PRODUCT".equals(rule.getMatchScope()) && !"BILLING_ITEM".equals(rule.getMatchScope())) {
+            throw new BusinessException("INVALID_RULE_SCOPE", "matchScope must be PRODUCT or BILLING_ITEM");
+        }
+        if (!"KNOWN".equals(rule.getDecision()) && !"IGNORED".equals(rule.getDecision())) {
+            throw new BusinessException("INVALID_RULE_DECISION", "decision must be KNOWN or IGNORED");
+        }
+    }
+
+    private String clean(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }
