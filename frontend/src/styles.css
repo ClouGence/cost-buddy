@@ -269,6 +269,10 @@ label {
   padding: 22px;
 }
 
+.workspace.audit-workspace {
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+}
+
 .panel {
   min-width: 0;
   border: 1px solid var(--color-hairline);
@@ -340,6 +344,10 @@ table {
   width: 100%;
   min-width: 760px;
   border-collapse: collapse;
+}
+
+.audit-run-table {
+  min-width: 920px;
 }
 
 th,

@@ -1,11 +1,14 @@
 package com.costbuddy.aliyun;
 
 import com.aliyun.bssopenapi20171214.Client;
+import com.aliyun.bssopenapi20171214.models.DescribeInstanceBillRequest;
+import com.aliyun.bssopenapi20171214.models.DescribeInstanceBillResponse;
 import com.aliyun.bssopenapi20171214.models.QueryAccountBillRequest;
 import com.aliyun.bssopenapi20171214.models.QueryAccountBillResponse;
 import com.aliyun.bssopenapi20171214.models.QueryAccountBillResponseBody;
 import com.aliyun.tea.TeaException;
 import com.aliyun.teaopenapi.models.Config;
+import com.costbuddy.common.exception.BusinessException;
 import com.costbuddy.domain.CloudAccountDO;
 import com.costbuddy.dto.response.CloudAccountCheckResponse;
 import java.time.YearMonth;
@@ -39,6 +42,20 @@ public class AliyunBssOpenApiClient {
             return CloudAccountCheckResponse.unavailable(formatTeaException(exception));
         } catch (Exception exception) {
             return CloudAccountCheckResponse.unavailable(exception.getMessage());
+        }
+    }
+
+    public DescribeInstanceBillResponse describeInstanceBill(CloudAccountDO cloudAccount, DescribeInstanceBillRequest request) {
+        CloudAccountCheckResponse validationResult = validateCredential(cloudAccount);
+        if (validationResult != null) {
+            throw new BusinessException("ALIYUN_CREDENTIAL_INVALID", validationResult.getMessage());
+        }
+        try {
+            return createClient(cloudAccount).describeInstanceBill(request);
+        } catch (TeaException exception) {
+            throw new BusinessException("ALIYUN_BSS_REQUEST_FAILED", formatTeaException(exception));
+        } catch (Exception exception) {
+            throw new BusinessException("ALIYUN_BSS_REQUEST_FAILED", exception.getMessage());
         }
     }
 

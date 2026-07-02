@@ -38,6 +38,7 @@ const TEXT = {
       id: 'ID',
       account: '账号',
       billDate: '账单日',
+      executionTime: '执行时间',
       window: '窗口',
       status: '状态',
       unknown: '陌生项',
@@ -165,6 +166,7 @@ const TEXT = {
       id: 'ID',
       account: 'Account',
       billDate: 'Bill Date',
+      executionTime: 'Started At',
       window: 'Window',
       status: 'Status',
       unknown: 'Unknown',
@@ -376,7 +378,7 @@ function App() {
         </div>
       </header>
       {status && <div className="toast">{status}</div>}
-      <main className="workspace">
+      <main className={`workspace ${tab === 'audits' ? 'audit-workspace' : ''}`}>
         {tab === 'audits' && <AuditWorkspace accounts={accounts} runs={runs} onReload={loadAll} onStatus={setStatus} text={text} />}
         {tab === 'accounts' && <AccountWorkspace accounts={accounts} onReload={loadAll} onStatus={setStatus} text={text} />}
         {tab === 'rules' && <RuleWorkspace rules={rules} onReload={loadAll} onStatus={setStatus} text={text} />}
@@ -435,7 +437,11 @@ function AuditWorkspace({
         periodEndDate: form.periodEndDate
       });
       setSelectedRunId(run.id);
-      onStatus(text.audit.auditRunCreated);
+      if (run.status === 'FAILED') {
+        onStatus(run.message || text.audit.createAuditFailed);
+      } else {
+        onStatus(text.audit.auditRunCreated);
+      }
       await onReload();
     } catch (error) {
       onStatus(error instanceof Error ? error.message : text.audit.createAuditFailed);
@@ -480,12 +486,13 @@ function AuditWorkspace({
           <h2>{text.audit.auditRuns}</h2>
         </div>
         <div className="table-wrap">
-          <table>
+          <table className="audit-run-table">
             <thead>
               <tr>
                 <th>{text.audit.id}</th>
                 <th>{text.audit.account}</th>
                 <th>{text.audit.billDate}</th>
+                <th>{text.audit.executionTime}</th>
                 <th>{text.audit.window}</th>
                 <th>{text.audit.status}</th>
                 <th>{text.audit.unknown}</th>
@@ -498,13 +505,14 @@ function AuditWorkspace({
                   <td>{run.id}</td>
                   <td>{accountById.get(run.cloudAccountId)?.name ?? run.cloudAccountId}</td>
                   <td>{run.billDate}</td>
+                  <td>{formatDateTime(run.startedAt)}</td>
                   <td>{run.periodStartDate} / {run.periodEndDate}</td>
                   <td><span className="status-pill">{formatAuditStatus(run.status, text)}</span></td>
                   <td>{run.unknownItemCount} / {run.itemCount}</td>
                   <td>{formatMoney(run.unknownPretaxAmount)} / {formatMoney(run.totalPretaxAmount)}</td>
                 </tr>
               ))}
-              {!runs.length && <EmptyRow colSpan={7} label={text.audit.noAuditRuns} />}
+              {!runs.length && <EmptyRow colSpan={8} label={text.audit.noAuditRuns} />}
             </tbody>
           </table>
         </div>
@@ -944,6 +952,13 @@ function emptyToUndefined(value: string) {
 
 function formatMoney(value: number | undefined) {
   return Number(value ?? 0).toFixed(2);
+}
+
+function formatDateTime(value: string | undefined) {
+  if (!value) {
+    return '-';
+  }
+  return value.replace('T', ' ').slice(0, 19);
 }
 
 function formatAuditStatus(status: string, text: UiText) {
