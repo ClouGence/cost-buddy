@@ -405,8 +405,9 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <span className="brand-mark">C</span>
-          <h1>Cost Buddy</h1>
+          <img className="brand-logo-mark" src="/favicon.svg" alt="" />
+          <span className="brand-wordmark" aria-hidden="true">CostBuddy</span>
+          <h1 className="sr-only">CostBuddy</h1>
         </div>
         <div className="topbar-actions">
           <nav className="segmented">

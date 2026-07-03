@@ -150,18 +150,43 @@ label {
   gap: 8px;
 }
 
-.brand-mark {
-  display: inline-flex;
-  width: 28px;
-  height: 28px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  font-size: 14px;
-  font-weight: 600;
+.brand-logo-mark {
+  display: block;
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
+.brand-wordmark {
+  position: relative;
+  display: inline-block;
+  color: var(--color-primary);
+  font-family: Inter, "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+  font-size: 21px;
+  font-weight: 780;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.brand-wordmark::after {
+  position: absolute;
+  right: 2px;
+  bottom: -8px;
+  left: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-info-border), var(--color-success));
+  content: "";
+  opacity: 0.72;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
 .topbar h1,
