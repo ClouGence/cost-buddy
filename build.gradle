@@ -30,6 +30,7 @@ dependencies {
         exclude group: 'pull-parser', module: 'pull-parser'
         exclude group: 'xpp3', module: 'xpp3'
     }
+    implementation 'com.motherboard:motherboard-sdk:0.1.0-SNAPSHOT'
 
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'

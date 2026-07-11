@@ -2,6 +2,8 @@ package com.costbuddy.common.web;
 
 import com.costbuddy.common.api.ApiResponse;
 import com.costbuddy.common.exception.BusinessException;
+import com.costbuddy.motherboard.MotherboardFailureType;
+import com.costbuddy.motherboard.MotherboardGatewayException;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +38,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleDuplicateKeyException(DuplicateKeyException exception) {
         LOGGER.warn("duplicate key exception", exception);
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.failed("DUPLICATE_KEY", "duplicated unique field"));
+    }
+
+    @ExceptionHandler(MotherboardGatewayException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMotherboardException(MotherboardGatewayException exception) {
+        LOGGER.error("motherboard exception: type={}, upstreamStatus={}, upstreamCode={}", exception.getFailureType(), exception.getUpstreamStatusCode(), exception
+            .getUpstreamCode(), exception);
+        if (exception.getFailureType() == MotherboardFailureType.TRANSPORT) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(ApiResponse.failed("MOTHERBOARD_UNAVAILABLE", "Motherboard service is unavailable"));
+        }
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ApiResponse.failed("MOTHERBOARD_INTEGRATION_ERROR", "Motherboard integration request failed"));
     }
 
     @ExceptionHandler(Exception.class)

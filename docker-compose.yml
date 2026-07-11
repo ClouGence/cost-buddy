@@ -1,0 +1,28 @@
+services:
+  cost-buddy:
+    image: ${COST_BUDDY_IMAGE}
+    container_name: cost-buddy
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${COST_BUDDY_PORT}:8766"
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      MOTHERBOARD_ENABLED: ${MOTHERBOARD_ENABLED:-false}
+      MOTHERBOARD_BASE_URL: ${MOTHERBOARD_BASE_URL:-}
+      MOTHERBOARD_PRODUCT_ID: ${MOTHERBOARD_PRODUCT_ID:-0}
+      MOTHERBOARD_PRIVATE_KEY: ${MOTHERBOARD_PRIVATE_KEY:-}
+      MOTHERBOARD_TIMEOUT: ${MOTHERBOARD_TIMEOUT:-30s}
+      LOGGING_FILE_NAME: /home/costbuddy/app/logs/cost-buddy.log
+      JAVA_OPTS: ${JAVA_OPTS}
+      TZ: Asia/Shanghai
+    volumes:
+      - ${COST_BUDDY_LOG_DIR}:/home/costbuddy/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8766/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
