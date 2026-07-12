@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AiEngine, BillingAuditItem, BillingAuditItemResource, BillingAuditRun, BillingItemExplanation, BillingItemRule, CloudAccount, CloudAccountCheck, api } from './api';
+import { AiEngine, ApiError, AuthenticationConfig, BillingAuditItem, BillingAuditItemResource, BillingAuditRun, BillingItemExplanation, BillingItemRule, CloudAccount, CloudAccountCheck, CurrentUser, api } from './api';
 import './styles.css';
 
 type Tab = 'audits' | 'accounts' | 'rules' | 'ai';
@@ -28,6 +28,17 @@ const TEXT = {
     messages: {
       refreshed: '已刷新',
       loadFailed: '加载失败'
+    },
+    auth: {
+      signIn: '登录 CostBuddy',
+      google: '使用 Google 登录',
+      wechat: '使用微信登录',
+      noProviders: '尚未配置可用的登录方式',
+      loading: '正在恢复登录状态',
+      loadFailed: '加载登录配置失败',
+      loginFailed: '登录失败，请重试',
+      retry: '重试',
+      logout: '退出登录'
     },
     audit: {
       manualAudit: '手动审计',
@@ -183,6 +194,17 @@ const TEXT = {
     messages: {
       refreshed: 'Refreshed',
       loadFailed: 'Load failed'
+    },
+    auth: {
+      signIn: 'Sign in to CostBuddy',
+      google: 'Continue with Google',
+      wechat: 'Continue with WeChat',
+      noProviders: 'No sign-in provider is configured',
+      loading: 'Restoring your session',
+      loadFailed: 'Failed to load sign-in configuration',
+      loginFailed: 'Sign-in failed. Please try again.',
+      retry: 'Retry',
+      logout: 'Sign out'
     },
     audit: {
       manualAudit: 'Manual Audit',
@@ -352,6 +374,11 @@ const emptyAiEngineForm = {
 
 function App() {
   const [language, setLanguage] = useState<Language>('zh');
+  const [authReady, setAuthReady] = useState(false);
+  const [authConfig, setAuthConfig] = useState<AuthenticationConfig | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [authError, setAuthError] = useState(() => new URLSearchParams(window.location.search).get('authError') || '');
+  const [authReloadKey, setAuthReloadKey] = useState(0);
   const [tab, setTab] = useState<Tab>('audits');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
@@ -390,8 +417,57 @@ function App() {
   }, [language]);
 
   useEffect(() => {
-    void loadAll();
-  }, [loadAll]);
+    let cancelled = false;
+    setAuthReady(false);
+    api.getAuthenticationConfig()
+      .then(async nextConfig => {
+        if (cancelled) {
+          return;
+        }
+        setAuthConfig(nextConfig);
+        if (!nextConfig.enabled) {
+          setCurrentUser(null);
+          return;
+        }
+        try {
+          const nextUser = await api.getCurrentUser();
+          if (!cancelled) {
+            setCurrentUser(nextUser);
+            setAuthError('');
+          }
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            if (!cancelled) {
+              setCurrentUser(null);
+            }
+            return;
+          }
+          throw error;
+        }
+      })
+      .catch(error => {
+        if (!cancelled) {
+          setAuthConfig(null);
+          setAuthError(error instanceof Error ? error.message : TEXT.zh.auth.loadFailed);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAuthReady(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authReloadKey]);
+
+  const applicationReady = authReady && authConfig !== null && (!authConfig.enabled || currentUser !== null);
+
+  useEffect(() => {
+    if (applicationReady) {
+      void loadAll();
+    }
+  }, [applicationReady, loadAll]);
 
   useEffect(() => {
     if (!status) {
@@ -400,6 +476,39 @@ function App() {
     const timeoutId = window.setTimeout(() => setStatus(''), 3200);
     return () => window.clearTimeout(timeoutId);
   }, [status]);
+
+  async function logout() {
+    setBusy(true);
+    try {
+      await api.logout();
+      setCurrentUser(null);
+      setAccounts([]);
+      setRuns([]);
+      setRules([]);
+      setAiEngines([]);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : text.auth.loginFailed);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!authReady) {
+    return <AuthenticationScreen language={language} text={text} loading />;
+  }
+
+  if (authConfig === null || (authConfig.enabled && currentUser === null)) {
+    return (
+      <AuthenticationScreen
+        language={language}
+        text={text}
+        providers={authConfig?.providers ?? []}
+        error={authError ? `${text.auth.loginFailed} (${authError})` : ''}
+        onRetry={authConfig === null ? () => setAuthReloadKey(current => current + 1) : undefined}
+        onSwitchLanguage={() => setLanguage(current => current === 'zh' ? 'en' : 'zh')}
+      />
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -417,6 +526,14 @@ function App() {
             <button className={tab === 'ai' ? 'active' : ''} onClick={() => setTab('ai')}>{text.tabs.ai}</button>
           </nav>
           <div className="icon-actions">
+            {currentUser && (
+              <div className="user-session" title={currentUser.email || String(currentUser.motherboardUserId)}>
+                <span>{currentUser.displayName || currentUser.email || `#${currentUser.motherboardUserId}`}</span>
+                <button className="icon-button square-icon" title={text.auth.logout} aria-label={text.auth.logout} onClick={() => void logout()} disabled={busy}>
+                  <LogoutIcon className="button-icon" />
+                </button>
+              </div>
+            )}
             <button className="icon-button square-icon" title={text.common.refresh} aria-label={text.common.refresh} onClick={() => void loadAll(true)} disabled={busy}>
               <RefreshIcon className={busy ? 'button-icon spin-icon' : 'button-icon'} />
             </button>
@@ -440,6 +557,65 @@ function App() {
         {tab === 'ai' && <AiWorkspace aiEngines={aiEngines} onReload={loadAll} onStatus={setStatus} text={text} />}
       </main>
     </div>
+  );
+}
+
+function AuthenticationScreen({
+  language,
+  text,
+  providers = [],
+  loading = false,
+  error = '',
+  onRetry,
+  onSwitchLanguage
+}: {
+  language: Language;
+  text: UiText;
+  providers?: string[];
+  loading?: boolean;
+  error?: string;
+  onRetry?: () => void;
+  onSwitchLanguage?: () => void;
+}) {
+  return (
+    <main className="authentication-page">
+      {onSwitchLanguage && (
+        <button
+          className="icon-button language-button authentication-language"
+          title={text.common.switchLanguage}
+          aria-label={text.common.switchLanguage}
+          onClick={onSwitchLanguage}
+        >
+          <GlobeIcon className="button-icon" />
+          <span className="language-hint">{language === 'zh' ? 'EN' : '中'}</span>
+        </button>
+      )}
+      <section className="authentication-panel">
+        <div className="authentication-brand">
+          <img src="/favicon.svg" alt="" />
+          <span>CostBuddy</span>
+        </div>
+        <h1>{text.auth.signIn}</h1>
+        {loading ? (
+          <div className="authentication-loading">
+            <span className="large-spinner" aria-hidden="true" />
+            <p>{text.auth.loading}</p>
+          </div>
+        ) : (
+          <div className="authentication-actions">
+            {providers.includes('GOOGLE') && (
+              <button className="primary" onClick={() => window.location.assign('/api/auth/login/GOOGLE')}>{text.auth.google}</button>
+            )}
+            {providers.includes('WECHAT') && (
+              <button onClick={() => window.location.assign('/api/auth/login/WECHAT')}>{text.auth.wechat}</button>
+            )}
+            {!providers.length && !onRetry && <p className="authentication-empty">{text.auth.noProviders}</p>}
+            {error && <p className="authentication-error">{error}</p>}
+            {onRetry && <button onClick={onRetry}>{text.auth.retry}</button>}
+          </div>
+        )}
+      </section>
+    </main>
   );
 }
 
@@ -1309,6 +1485,16 @@ function GlobeIcon({ className }: { className?: string }) {
       <path d="M2 12h20" />
       <path d="M12 2a15.3 15.3 0 0 1 0 20" />
       <path d="M12 2a15.3 15.3 0 0 0 0 20" />
+    </svg>
+  );
+}
+
+function LogoutIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 17l5-5-5-5" />
+      <path d="M15 12H3" />
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
     </svg>
   );
 }

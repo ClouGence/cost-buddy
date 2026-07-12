@@ -5,6 +5,28 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly code: string,
+    message: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export interface AuthenticationConfig {
+  enabled: boolean;
+  providers: string[];
+}
+
+export interface CurrentUser {
+  motherboardUserId: number;
+  displayName?: string;
+  email?: string;
+}
+
 export interface CloudAccount {
   id: number;
   name: string;
@@ -141,12 +163,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
   const payload = JSON.parse(text) as ApiResponse<T>;
   if (!response.ok || !payload.success) {
-    throw new Error(payload.message || payload.code || `HTTP ${response.status}`);
+    throw new ApiError(response.status, payload.code, payload.message || payload.code || `HTTP ${response.status}`);
   }
   return payload.data;
 }
 
 export const api = {
+  getAuthenticationConfig: () => request<AuthenticationConfig>('/api/auth/config'),
+  getCurrentUser: () => request<CurrentUser>('/api/me'),
+  logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
+
   listCloudAccounts: () => request<CloudAccount[]>('/api/cloud-accounts'),
   createCloudAccount: (payload: Omit<CloudAccount, 'id' | 'createdAt' | 'updatedAt'> & { accessKeySecret?: string }) =>
     request<CloudAccount>('/api/cloud-accounts', { method: 'POST', body: JSON.stringify(payload) }),

@@ -150,6 +150,31 @@ label {
   gap: 8px;
 }
 
+.user-session {
+  display: inline-flex;
+  max-width: 220px;
+  align-items: center;
+  gap: 6px;
+  padding-left: 10px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--color-canvas);
+}
+
+.user-session > span {
+  overflow: hidden;
+  color: var(--color-body);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-session button {
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+}
+
 .brand-logo-mark {
   display: block;
   width: 34px;
@@ -259,6 +284,96 @@ label {
 
 .spin-icon {
   animation: icon-spin 0.8s linear infinite;
+}
+
+.authentication-page {
+  position: relative;
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: var(--color-surface-soft);
+}
+
+.authentication-language {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
+.authentication-panel {
+  width: min(380px, 100%);
+  padding: 30px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  box-shadow: var(--shadow-panel);
+}
+
+.authentication-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-primary);
+  font-size: 20px;
+  font-weight: 750;
+}
+
+.authentication-brand img {
+  width: 36px;
+  height: 36px;
+}
+
+.authentication-panel h1 {
+  margin: 28px 0 18px;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.authentication-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.authentication-actions button {
+  width: 100%;
+}
+
+.authentication-loading {
+  display: flex;
+  min-height: 150px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--color-muted);
+}
+
+.authentication-loading .large-spinner {
+  width: 42px;
+  height: 42px;
+}
+
+.authentication-loading p,
+.authentication-empty,
+.authentication-error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.authentication-empty {
+  color: var(--color-muted);
+}
+
+.authentication-error {
+  padding: 10px;
+  border: 1px solid #dfb8ac;
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 
 @keyframes icon-spin {
@@ -682,6 +797,10 @@ tbody tr:hover {
 
   .icon-actions {
     justify-content: flex-end;
+  }
+
+  .user-session {
+    max-width: min(220px, calc(100vw - 150px));
   }
 
   .segmented {

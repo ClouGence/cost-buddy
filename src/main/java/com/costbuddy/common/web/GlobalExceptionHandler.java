@@ -1,5 +1,7 @@
 package com.costbuddy.common.web;
 
+import com.costbuddy.auth.AuthenticationFlowException;
+import com.costbuddy.auth.AuthenticationRequiredException;
 import com.costbuddy.common.api.ApiResponse;
 import com.costbuddy.common.exception.BusinessException;
 import com.costbuddy.motherboard.MotherboardFailureType;
@@ -38,6 +40,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleDuplicateKeyException(DuplicateKeyException exception) {
         LOGGER.warn("duplicate key exception", exception);
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.failed("DUPLICATE_KEY", "duplicated unique field"));
+    }
+
+    @ExceptionHandler(AuthenticationRequiredException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthenticationRequiredException(AuthenticationRequiredException exception) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.failed("AUTHENTICATION_REQUIRED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(AuthenticationFlowException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthenticationFlowException(AuthenticationFlowException exception) {
+        LOGGER.warn("authentication flow exception: code={}, message={}", exception.getCode(), exception.getMessage());
+        return ResponseEntity.badRequest().body(ApiResponse.failed(exception.getCode(), exception.getMessage()));
     }
 
     @ExceptionHandler(MotherboardGatewayException.class)

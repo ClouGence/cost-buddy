@@ -21,6 +21,14 @@ mybatis:
 
 server:
   port: 8766
+  servlet:
+    session:
+      timeout: ${COST_BUDDY_SESSION_TIMEOUT:7d}
+      cookie:
+        name: COSTBUDDY_SESSION
+        http-only: true
+        secure: ${COST_BUDDY_SESSION_COOKIE_SECURE:false}
+        same-site: lax
 
 management:
   endpoints:
@@ -34,3 +42,18 @@ motherboard:
   product-id: ${MOTHERBOARD_PRODUCT_ID:0}
   private-key: ${MOTHERBOARD_PRIVATE_KEY:}
   timeout: ${MOTHERBOARD_TIMEOUT:30s}
+
+cost-buddy:
+  authentication:
+    success-redirect: ${COST_BUDDY_AUTH_SUCCESS_REDIRECT:/}
+    failure-redirect: ${COST_BUDDY_AUTH_FAILURE_REDIRECT:/}
+    google:
+      enabled: ${COST_BUDDY_AUTH_GOOGLE_ENABLED:false}
+      client-id: ${COST_BUDDY_AUTH_GOOGLE_CLIENT_ID:}
+      redirect-uri: ${COST_BUDDY_AUTH_GOOGLE_REDIRECT_URI:}
+      authorization-uri: ${COST_BUDDY_AUTH_GOOGLE_AUTHORIZATION_URI:https://accounts.google.com/o/oauth2/v2/auth}
+    wechat:
+      enabled: ${COST_BUDDY_AUTH_WECHAT_ENABLED:false}
+      app-id: ${COST_BUDDY_AUTH_WECHAT_APP_ID:}
+      redirect-uri: ${COST_BUDDY_AUTH_WECHAT_REDIRECT_URI:}
+      authorization-uri: ${COST_BUDDY_AUTH_WECHAT_AUTHORIZATION_URI:https://open.weixin.qq.com/connect/qrconnect}
