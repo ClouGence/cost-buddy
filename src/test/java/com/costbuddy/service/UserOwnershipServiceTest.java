@@ -21,6 +21,7 @@ import com.costbuddy.mapper.BillingAuditRawLineMapper;
 import com.costbuddy.mapper.BillingAuditRunMapper;
 import com.costbuddy.mapper.BillingItemRuleMapper;
 import com.costbuddy.mapper.CloudAccountMapper;
+import com.costbuddy.metering.UsageMeteringService;
 import com.costbuddy.permission.CredentialPermissionService;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -113,6 +114,7 @@ class UserOwnershipServiceTest {
             mock(BillingAuditRawLineMapper.class),
             mock(BillingItemRuleMatcher.class),
             mock(BillingItemRuleService.class),
-            currentUserProvider);
+            currentUserProvider,
+            mock(UsageMeteringService.class));
     }
 }

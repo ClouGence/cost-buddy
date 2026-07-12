@@ -149,6 +149,12 @@ export interface BillingItemExplanation {
   updatedAt?: string;
 }
 
+export interface MeteredOperationResponse<T> {
+  decision: 'ALLOW' | 'REJECT';
+  reason?: string;
+  result?: T;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
     headers: {
@@ -196,16 +202,19 @@ export const api = {
     request<BillingItemRule>(`/api/billing-item-rules/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteBillingItemRule: (id: number) => request<void>(`/api/billing-item-rules/${id}`, { method: 'DELETE' }),
 
-  triggerBillingAudit: (payload: { cloudAccountId: number; billDate: string; periodStartDate?: string; periodEndDate?: string }) =>
-    request<BillingAuditRun>('/api/billing-audits', { method: 'POST', body: JSON.stringify(payload) }),
+  triggerBillingAudit: (payload: { cloudAccountId: number; billDate: string; idempotencyKey: string; periodStartDate?: string; periodEndDate?: string }) =>
+    request<MeteredOperationResponse<BillingAuditRun>>('/api/billing-audits', { method: 'POST', body: JSON.stringify(payload) }),
   listBillingAudits: () => request<BillingAuditRun[]>('/api/billing-audits'),
   listBillingAuditItems: (id: number) => request<BillingAuditItem[]>(`/api/billing-audits/${id}/items`),
   listBillingAuditItemResources: (runId: number, itemId: number) =>
     request<BillingAuditItemResource[]>(`/api/billing-audits/${runId}/items/${itemId}/resources`),
   listBillingAuditItemExplanations: (runId: number, itemId: number) =>
     request<BillingItemExplanation[]>(`/api/billing-audits/${runId}/items/${itemId}/explanations`),
-  explainBillingAuditItem: (runId: number, itemId: number, aiEngineId: number) =>
-    request<BillingItemExplanation>(`/api/billing-audits/${runId}/items/${itemId}/explanations`, { method: 'POST', body: JSON.stringify({ aiEngineId }) }),
+  explainBillingAuditItem: (runId: number, itemId: number, aiEngineId: number, idempotencyKey: string) =>
+    request<MeteredOperationResponse<BillingItemExplanation>>(`/api/billing-audits/${runId}/items/${itemId}/explanations`, {
+      method: 'POST',
+      body: JSON.stringify({ aiEngineId, idempotencyKey })
+    }),
   createBillingAuditItemRule: (runId: number, itemId: number, payload: { matchScope: string; decision: string; note?: string }) =>
     request<BillingItemRule>(`/api/billing-audits/${runId}/items/${itemId}/rules`, { method: 'POST', body: JSON.stringify(payload) }),
   applyBillingAuditRules: (runId: number) =>

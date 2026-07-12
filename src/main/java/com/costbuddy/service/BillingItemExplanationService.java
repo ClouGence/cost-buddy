@@ -4,16 +4,22 @@ import com.costbuddy.ai.AiChatClient;
 import com.costbuddy.common.exception.NotFoundException;
 import com.costbuddy.domain.AiEngineDO;
 import com.costbuddy.domain.BillingAuditItemDO;
+import com.costbuddy.domain.BillingAuditRunDO;
 import com.costbuddy.domain.BillingItemExplanationDO;
+import com.costbuddy.domain.CloudAccountDO;
 import com.costbuddy.dto.response.BillingAuditItemResourceResponse;
+import com.costbuddy.dto.response.MeteredOperationResponse;
 import com.costbuddy.mapper.BillingAuditItemMapper;
 import com.costbuddy.mapper.BillingAuditRawLineMapper;
 import com.costbuddy.mapper.BillingItemExplanationMapper;
+import com.costbuddy.metering.MeterItemCodes;
+import com.costbuddy.metering.UsageMeteringResult;
+import com.costbuddy.metering.UsageMeteringService;
+import com.motherboard.sdk.model.ResourceType;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class BillingItemExplanationService {
@@ -26,16 +32,20 @@ public class BillingItemExplanationService {
     private final BillingAuditService          billingAuditService;
     private final AiEngineService              aiEngineService;
     private final AiChatClient                 aiChatClient;
+    private final CloudAccountService          cloudAccountService;
+    private final UsageMeteringService         usageMeteringService;
 
     public BillingItemExplanationService(BillingAuditItemMapper billingAuditItemMapper, BillingAuditRawLineMapper billingAuditRawLineMapper,
                                          BillingItemExplanationMapper billingItemExplanationMapper, BillingAuditService billingAuditService, AiEngineService aiEngineService,
-                                         AiChatClient aiChatClient){
+                                         AiChatClient aiChatClient, CloudAccountService cloudAccountService, UsageMeteringService usageMeteringService){
         this.billingAuditItemMapper = billingAuditItemMapper;
         this.billingAuditRawLineMapper = billingAuditRawLineMapper;
         this.billingItemExplanationMapper = billingItemExplanationMapper;
         this.billingAuditService = billingAuditService;
         this.aiEngineService = aiEngineService;
         this.aiChatClient = aiChatClient;
+        this.cloudAccountService = cloudAccountService;
+        this.usageMeteringService = usageMeteringService;
     }
 
     private BillingItemExplanationDO get(Long id) {
@@ -47,15 +57,21 @@ public class BillingItemExplanationService {
     }
 
     public List<BillingItemExplanationDO> listByAuditItem(Long runId, Long itemId) {
-        getItemInRun(runId, itemId);
+        getItemInRun(billingAuditService.get(runId), itemId);
         return billingItemExplanationMapper.selectByAuditItemId(itemId);
     }
 
-    @Transactional
-    public BillingItemExplanationDO explain(Long runId, Long itemId, Long aiEngineId) {
-        BillingAuditItemDO item = getItemInRun(runId, itemId);
+    public MeteredOperationResponse<BillingItemExplanationDO> explain(Long runId, Long itemId, Long aiEngineId, String idempotencyKey) {
+        BillingAuditRunDO run = billingAuditService.get(runId);
+        BillingAuditItemDO item = getItemInRun(run, itemId);
+        CloudAccountDO cloudAccount = cloudAccountService.get(run.getCloudAccountId());
         AiEngineDO aiEngine = aiEngineService.get(aiEngineId);
         String promptContext = buildPromptContext(item, billingAuditRawLineMapper.selectResourcesByAuditItem(item));
+        UsageMeteringResult metering = usageMeteringService
+            .report(MeterItemCodes.AI_OPTIMIZATION_NOTE, idempotencyKey, ResourceType.ALIYUN_CREDENTIAL, cloudAccount.getCredentialResourceId());
+        if (!metering.allowed()) {
+            return MeteredOperationResponse.rejected(metering);
+        }
         String explanationText = aiChatClient.chat(aiEngine, systemPrompt(), promptContext);
         BillingItemExplanationDO explanation = new BillingItemExplanationDO();
         explanation.setAuditItemId(itemId);
@@ -63,13 +79,12 @@ public class BillingItemExplanationService {
         explanation.setPromptContext(promptContext);
         explanation.setExplanation(explanationText);
         billingItemExplanationMapper.insert(explanation);
-        return get(explanation.getId());
+        return MeteredOperationResponse.allowed(metering, get(explanation.getId()));
     }
 
-    private BillingAuditItemDO getItemInRun(Long runId, Long itemId) {
-        billingAuditService.get(runId);
+    private BillingAuditItemDO getItemInRun(BillingAuditRunDO run, Long itemId) {
         BillingAuditItemDO item = billingAuditItemMapper.selectById(itemId);
-        if (item == null || !runId.equals(item.getRunId())) {
+        if (item == null || !run.getId().equals(item.getRunId())) {
             throw new NotFoundException("billing_audit_item", itemId);
         }
         return item;

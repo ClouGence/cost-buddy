@@ -10,9 +10,14 @@ import com.costbuddy.domain.CloudAccountDO;
 import com.costbuddy.dto.request.BillingAuditItemRuleRequest;
 import com.costbuddy.dto.request.BillingAuditRunRequest;
 import com.costbuddy.dto.response.BillingAuditItemResourceResponse;
+import com.costbuddy.dto.response.MeteredOperationResponse;
 import com.costbuddy.mapper.BillingAuditItemMapper;
 import com.costbuddy.mapper.BillingAuditRawLineMapper;
 import com.costbuddy.mapper.BillingAuditRunMapper;
+import com.costbuddy.metering.MeterItemCodes;
+import com.costbuddy.metering.UsageMeteringResult;
+import com.costbuddy.metering.UsageMeteringService;
+import com.motherboard.sdk.model.ResourceType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,11 +38,12 @@ public class BillingAuditService {
     private final BillingItemRuleMatcher        billingItemRuleMatcher;
     private final BillingItemRuleService        billingItemRuleService;
     private final CurrentUserProvider           currentUserProvider;
+    private final UsageMeteringService          usageMeteringService;
 
     public BillingAuditService(CloudAccountService cloudAccountService, AliyunBillingRawLineCollector aliyunBillingRawLineCollector,
                                BillingAuditItemAggregator billingAuditItemAggregator, BillingAuditRunMapper billingAuditRunMapper, BillingAuditItemMapper billingAuditItemMapper,
                                BillingAuditRawLineMapper billingAuditRawLineMapper, BillingItemRuleMatcher billingItemRuleMatcher, BillingItemRuleService billingItemRuleService,
-                               CurrentUserProvider currentUserProvider){
+                               CurrentUserProvider currentUserProvider, UsageMeteringService usageMeteringService){
         this.cloudAccountService = cloudAccountService;
         this.aliyunBillingRawLineCollector = aliyunBillingRawLineCollector;
         this.billingAuditItemAggregator = billingAuditItemAggregator;
@@ -47,10 +53,16 @@ public class BillingAuditService {
         this.billingItemRuleMatcher = billingItemRuleMatcher;
         this.billingItemRuleService = billingItemRuleService;
         this.currentUserProvider = currentUserProvider;
+        this.usageMeteringService = usageMeteringService;
     }
 
-    public BillingAuditRunDO trigger(BillingAuditRunRequest request) {
+    public MeteredOperationResponse<BillingAuditRunDO> trigger(BillingAuditRunRequest request) {
         CloudAccountDO cloudAccount = cloudAccountService.get(request.getCloudAccountId());
+        UsageMeteringResult metering = usageMeteringService
+            .report(MeterItemCodes.AUDIT_RUN, request.getIdempotencyKey(), ResourceType.ALIYUN_CREDENTIAL, cloudAccount.getCredentialResourceId());
+        if (!metering.allowed()) {
+            return MeteredOperationResponse.rejected(metering);
+        }
         BillingAuditRunDO run = new BillingAuditRunDO();
         run.setMotherboardUserId(currentUserProvider.motherboardUserId());
         run.setCloudAccountId(request.getCloudAccountId());
@@ -81,7 +93,7 @@ public class BillingAuditService {
         }
         run.setFinishedAt(LocalDateTime.now());
         billingAuditRunMapper.update(run);
-        return get(run.getId());
+        return MeteredOperationResponse.allowed(metering, get(run.getId()));
     }
 
     public BillingAuditRunDO get(Long id) {

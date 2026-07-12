@@ -9,6 +9,7 @@ import com.costbuddy.dto.request.BillingAuditItemRuleRequest;
 import com.costbuddy.dto.request.BillingAuditRunRequest;
 import com.costbuddy.dto.request.BillingItemExplanationRequest;
 import com.costbuddy.dto.response.BillingAuditItemResourceResponse;
+import com.costbuddy.dto.response.MeteredOperationResponse;
 import com.costbuddy.service.BillingAuditService;
 import com.costbuddy.service.BillingItemExplanationService;
 import jakarta.validation.Valid;
@@ -26,17 +27,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/billing-audits")
 public class BillingAuditController {
 
-    private final BillingAuditService billingAuditService;
+    private final BillingAuditService           billingAuditService;
     private final BillingItemExplanationService billingItemExplanationService;
 
-    public BillingAuditController(BillingAuditService billingAuditService, BillingItemExplanationService billingItemExplanationService) {
+    public BillingAuditController(BillingAuditService billingAuditService, BillingItemExplanationService billingItemExplanationService){
         this.billingAuditService = billingAuditService;
         this.billingItemExplanationService = billingItemExplanationService;
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<BillingAuditRunDO> trigger(@Valid @RequestBody BillingAuditRunRequest request) {
+    public ApiResponse<MeteredOperationResponse<BillingAuditRunDO>> trigger(@Valid @RequestBody BillingAuditRunRequest request) {
         return ApiResponse.ok(billingAuditService.trigger(request));
     }
 
@@ -66,22 +66,14 @@ public class BillingAuditController {
     }
 
     @PostMapping("/{id}/items/{itemId}/explanations")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<BillingItemExplanationDO> explainItem(
-        @PathVariable Long id,
-        @PathVariable Long itemId,
-        @Valid @RequestBody BillingItemExplanationRequest request
-    ) {
-        return ApiResponse.ok(billingItemExplanationService.explain(id, itemId, request.getAiEngineId()));
+    public ApiResponse<MeteredOperationResponse<BillingItemExplanationDO>> explainItem(@PathVariable Long id, @PathVariable Long itemId,
+                                                                                       @Valid @RequestBody BillingItemExplanationRequest request) {
+        return ApiResponse.ok(billingItemExplanationService.explain(id, itemId, request.getAiEngineId(), request.getIdempotencyKey()));
     }
 
     @PostMapping("/{id}/items/{itemId}/rules")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<BillingItemRuleDO> createRuleFromItem(
-        @PathVariable Long id,
-        @PathVariable Long itemId,
-        @Valid @RequestBody BillingAuditItemRuleRequest request
-    ) {
+    public ApiResponse<BillingItemRuleDO> createRuleFromItem(@PathVariable Long id, @PathVariable Long itemId, @Valid @RequestBody BillingAuditItemRuleRequest request) {
         return ApiResponse.ok(billingAuditService.createRuleFromItem(id, itemId, request));
     }
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AiEngine, ApiError, AuthenticationConfig, BillingAuditItem, BillingAuditItemResource, BillingAuditRun, BillingItemExplanation, BillingItemRule, CloudAccount, CloudAccountCheck, CurrentUser, api } from './api';
 import './styles.css';
@@ -69,6 +69,7 @@ const TEXT = {
       loadExplanationsFailed: '加载优化说明失败',
       noExplanations: '暂无优化说明',
       aiAnalyzing: 'AI 分析中',
+      usageRejected: '当前套餐不允许执行此操作（{reason}）',
       ignoreBillingItem: '忽略计费项',
       applyRules: '应用规则',
       ruleCreated: '规则已创建并应用',
@@ -235,6 +236,7 @@ const TEXT = {
       loadExplanationsFailed: 'Load optimization notes failed',
       noExplanations: 'No optimization notes',
       aiAnalyzing: 'AI analyzing',
+      usageRejected: 'Your current plan does not allow this operation ({reason})',
       ignoreBillingItem: 'Ignore Item',
       applyRules: 'Apply Rules',
       ruleCreated: 'Rule created and applied',
@@ -643,10 +645,13 @@ function AuditWorkspace({
   const [explanationItemId, setExplanationItemId] = useState<number | null>(null);
   const [explanations, setExplanations] = useState<BillingItemExplanation[]>([]);
   const [explanationError, setExplanationError] = useState('');
+  const [explanationNotice, setExplanationNotice] = useState('');
   const [explanationModalOpen, setExplanationModalOpen] = useState(false);
   const [selectedAiEngineId, setSelectedAiEngineId] = useState('');
   const [explainingItemId, setExplainingItemId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
+  const auditUsageAttempt = useRef<{ signature: string; idempotencyKey: string } | null>(null);
+  const explanationUsageAttempts = useRef(new Map<string, string>());
 
   const accountById = useMemo(() => new Map(accounts.map(account => [account.id, account])), [accounts]);
   const pageCount = Math.max(1, Math.ceil(runs.length / pageSize));
@@ -707,10 +712,24 @@ function AuditWorkspace({
       return;
     }
     try {
-      const run = await api.triggerBillingAudit({
+      const signature = `${form.cloudAccountId}:${form.billDate}`;
+      if (auditUsageAttempt.current?.signature !== signature) {
+        auditUsageAttempt.current = { signature, idempotencyKey: createUsageIdempotencyKey('audit_run') };
+      }
+      const response = await api.triggerBillingAudit({
         cloudAccountId: Number(form.cloudAccountId),
-        billDate: form.billDate
+        billDate: form.billDate,
+        idempotencyKey: auditUsageAttempt.current.idempotencyKey
       });
+      auditUsageAttempt.current = null;
+      if (response.decision === 'REJECT') {
+        onStatus(formatUsageRejection(response.reason, text));
+        return;
+      }
+      const run = response.result;
+      if (!run) {
+        throw new Error(text.audit.createAuditFailed);
+      }
       if (run.status === 'FAILED') {
         onStatus(run.message || text.audit.createAuditFailed);
       } else {
@@ -769,9 +788,27 @@ function AuditWorkspace({
       setExplanationModalOpen(true);
       setExplanations([]);
       setExplanationError('');
+      setExplanationNotice('');
       setExplainingItemId(item.id);
       setResourceItemId(null);
-      const explanation = await api.explainBillingAuditItem(detailRunId, item.id, Number(selectedAiEngineId));
+      const attemptSignature = `${detailRunId}:${item.id}:${selectedAiEngineId}`;
+      let idempotencyKey = explanationUsageAttempts.current.get(attemptSignature);
+      if (!idempotencyKey) {
+        idempotencyKey = createUsageIdempotencyKey('ai_optimization_note');
+        explanationUsageAttempts.current.set(attemptSignature, idempotencyKey);
+      }
+      const response = await api.explainBillingAuditItem(detailRunId, item.id, Number(selectedAiEngineId), idempotencyKey);
+      explanationUsageAttempts.current.delete(attemptSignature);
+      if (response.decision === 'REJECT') {
+        const message = formatUsageRejection(response.reason, text);
+        setExplanationNotice(message);
+        onStatus(message);
+        return;
+      }
+      const explanation = response.result;
+      if (!explanation) {
+        throw new Error(text.audit.explainFailed);
+      }
       setExplanations([explanation]);
       onStatus(text.audit.explanationCreated);
     } catch (error) {
@@ -789,6 +826,7 @@ function AuditWorkspace({
       setExplanationItemId(null);
       setExplanations([]);
       setExplanationError('');
+      setExplanationNotice('');
     }
   }
 
@@ -895,6 +933,7 @@ function AuditWorkspace({
             explanation={explanations[0]}
             item={explanationItem}
             loading={explainingItemId !== null}
+            notice={explanationNotice}
             onClose={closeExplanationModal}
             text={text}
           />
@@ -1296,6 +1335,7 @@ function OptimizationExplanationModal({
   explanation,
   item,
   loading,
+  notice,
   onClose,
   text
 }: {
@@ -1303,6 +1343,7 @@ function OptimizationExplanationModal({
   explanation?: BillingItemExplanation;
   item: BillingAuditItem | null;
   loading: boolean;
+  notice: string;
   onClose: () => void;
   text: UiText;
 }) {
@@ -1324,13 +1365,14 @@ function OptimizationExplanationModal({
             </div>
           )}
           {!loading && error && <div className="modal-error">{error}</div>}
-          {!loading && !error && explanation && (
+          {!loading && !error && notice && <div className="empty-card">{notice}</div>}
+          {!loading && !error && !notice && explanation && (
             <article className="explanation-block">
               <div className="explanation-meta">#{explanation.id} / {formatDateTime(explanation.createdAt)}</div>
               <MarkdownContent markdown={explanation.explanation} />
             </article>
           )}
-          {!loading && !error && !explanation && <div className="empty-card">{text.audit.noExplanations}</div>}
+          {!loading && !error && !notice && !explanation && <div className="empty-card">{text.audit.noExplanations}</div>}
         </div>
       </section>
     </div>
@@ -1505,6 +1547,17 @@ function defaultAuditForm(cloudAccountId?: number) {
     cloudAccountId: cloudAccountId ? String(cloudAccountId) : '',
     billDate
   };
+}
+
+function createUsageIdempotencyKey(meterItemCode: string) {
+  const operationId = typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : Array.from(crypto.getRandomValues(new Uint8Array(16)), value => value.toString(16).padStart(2, '0')).join('');
+  return `costbuddy:${meterItemCode}:${operationId}`;
+}
+
+function formatUsageRejection(reason: string | undefined, text: UiText) {
+  return text.audit.usageRejected.replace('{reason}', reason || 'REJECTED');
 }
 
 function offsetDate(offsetDays: number) {
