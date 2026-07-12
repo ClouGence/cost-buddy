@@ -9,6 +9,7 @@ public class CloudAccountDO {
 
     private Long          id;
     private Long          motherboardUserId;
+    private String        credentialResourceId;
     private String        name;
     private String        provider;
     private String        accessKeyId;

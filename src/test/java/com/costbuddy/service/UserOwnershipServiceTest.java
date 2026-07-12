@@ -21,6 +21,7 @@ import com.costbuddy.mapper.BillingAuditRawLineMapper;
 import com.costbuddy.mapper.BillingAuditRunMapper;
 import com.costbuddy.mapper.BillingItemRuleMapper;
 import com.costbuddy.mapper.CloudAccountMapper;
+import com.costbuddy.permission.CredentialPermissionService;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,7 +50,8 @@ class UserOwnershipServiceTest {
             return 1;
         }).when(mapper).insert(any());
         when(mapper.selectByIdAndMotherboardUserId(1L, USER_ID)).thenAnswer(invocation -> inserted.get());
-        CloudAccountService service = new CloudAccountService(mapper, mock(AliyunBssOpenApiClient.class), currentUserProvider);
+        CredentialPermissionService permissionService = mock(CredentialPermissionService.class);
+        CloudAccountService service = new CloudAccountService(mapper, mock(AliyunBssOpenApiClient.class), currentUserProvider, permissionService);
         CloudAccountRequest request = new CloudAccountRequest();
         request.setName("account");
         request.setProvider("ALIYUN");
@@ -57,6 +59,8 @@ class UserOwnershipServiceTest {
         CloudAccountDO account = service.create(request);
 
         assertThat(account.getMotherboardUserId()).isEqualTo(USER_ID);
+        assertThat(account.getCredentialResourceId()).startsWith("aliyun-credential:");
+        verify(permissionService).grant(USER_ID, account.getCredentialResourceId());
         verify(mapper).selectByIdAndMotherboardUserId(1L, USER_ID);
     }
 

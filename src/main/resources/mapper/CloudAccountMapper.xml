@@ -7,6 +7,7 @@
     <resultMap id="CloudAccountResultMap" type="com.costbuddy.domain.CloudAccountDO">
         <id column="id" property="id"/>
         <result column="motherboard_user_id" property="motherboardUserId"/>
+        <result column="credential_resource_id" property="credentialResourceId"/>
         <result column="name" property="name"/>
         <result column="provider" property="provider"/>
         <result column="access_key_id" property="accessKeyId"/>
@@ -17,7 +18,7 @@
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
 
-    <sql id="BaseColumnList">id, motherboard_user_id, name, provider, access_key_id, access_key_secret, bill_owner_id, enabled, created_at, updated_at</sql>
+    <sql id="BaseColumnList">id, motherboard_user_id, credential_resource_id, name, provider, access_key_id, access_key_secret, bill_owner_id, enabled, created_at, updated_at</sql>
 
     <select id="selectByIdAndMotherboardUserId" resultMap="CloudAccountResultMap">
         SELECT <include refid="BaseColumnList"/> FROM cloud_account WHERE id = #{id} AND motherboard_user_id = #{motherboardUserId}
@@ -28,8 +29,8 @@
     </select>
 
     <insert id="insert" parameterType="com.costbuddy.domain.CloudAccountDO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO cloud_account (motherboard_user_id, name, provider, access_key_id, access_key_secret, bill_owner_id, enabled)
-        VALUES (#{motherboardUserId}, #{name}, #{provider}, #{accessKeyId}, #{accessKeySecret}, #{billOwnerId}, #{enabled})
+        INSERT INTO cloud_account (motherboard_user_id, credential_resource_id, name, provider, access_key_id, access_key_secret, bill_owner_id, enabled)
+        VALUES (#{motherboardUserId}, #{credentialResourceId}, #{name}, #{provider}, #{accessKeyId}, #{accessKeySecret}, #{billOwnerId}, #{enabled})
     </insert>
 
     <update id="update" parameterType="com.costbuddy.domain.CloudAccountDO">
