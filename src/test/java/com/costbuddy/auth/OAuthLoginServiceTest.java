@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.costbuddy.motherboard.MotherboardGateway;
+import com.costbuddy.subscription.FreeSubscriptionService;
 import com.motherboard.sdk.model.Region;
 import com.motherboard.sdk.model.UserStatus;
 import com.motherboard.sdk.model.request.SsoSessionRequest;
@@ -23,9 +24,10 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 class OAuthLoginServiceTest {
 
-    private MotherboardGateway motherboardGateway;
-    private CurrentUserContext currentUserContext;
-    private OAuthLoginService  service;
+    private MotherboardGateway      motherboardGateway;
+    private FreeSubscriptionService freeSubscriptionService;
+    private CurrentUserContext      currentUserContext;
+    private OAuthLoginService       service;
 
     @BeforeEach
     void setUp() {
@@ -35,8 +37,9 @@ class OAuthLoginServiceTest {
         properties.getGoogle().setRedirectUri("http://localhost:8766/api/auth/callback/GOOGLE");
 
         motherboardGateway = mock(MotherboardGateway.class);
+        freeSubscriptionService = mock(FreeSubscriptionService.class);
         currentUserContext = new CurrentUserContext();
-        service = new OAuthLoginService(properties, motherboardGateway, currentUserContext);
+        service = new OAuthLoginService(properties, motherboardGateway, freeSubscriptionService, currentUserContext);
     }
 
     @Test
@@ -70,6 +73,7 @@ class OAuthLoginServiceTest {
 
         ArgumentCaptor<SsoSessionRequest> requestCaptor = ArgumentCaptor.forClass(SsoSessionRequest.class);
         verify(motherboardGateway).createSsoSession(requestCaptor.capture());
+        verify(freeSubscriptionService).ensureFreeSubscription(42L);
         assertThat(requestCaptor.getValue().authorizationCode()).isEqualTo("authorization-code");
         assertThat(requestCaptor.getValue().redirectUri()).isEqualTo("http://localhost:8766/api/auth/callback/GOOGLE");
     }

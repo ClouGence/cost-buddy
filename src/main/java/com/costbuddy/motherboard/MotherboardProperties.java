@@ -11,6 +11,7 @@ public class MotherboardProperties {
     private boolean  enabled;
     private String   baseUrl    = "";
     private long     productId;
+    private long     freePlanId;
     private String   privateKey = "";
     private Duration timeout    = Duration.ofSeconds(30);
 }

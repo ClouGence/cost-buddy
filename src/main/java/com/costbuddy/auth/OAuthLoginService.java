@@ -1,6 +1,7 @@
 package com.costbuddy.auth;
 
 import com.costbuddy.motherboard.MotherboardGateway;
+import com.costbuddy.subscription.FreeSubscriptionService;
 import com.motherboard.sdk.model.IdentityProvider;
 import com.motherboard.sdk.model.Region;
 import com.motherboard.sdk.model.request.SsoSessionRequest;
@@ -29,12 +30,15 @@ public class OAuthLoginService {
 
     private final AuthenticationProperties properties;
     private final MotherboardGateway       motherboardGateway;
+    private final FreeSubscriptionService  freeSubscriptionService;
     private final CurrentUserContext       currentUserContext;
     private final SecureRandom             secureRandom          = new SecureRandom();
 
-    public OAuthLoginService(AuthenticationProperties properties, MotherboardGateway motherboardGateway, CurrentUserContext currentUserContext){
+    public OAuthLoginService(AuthenticationProperties properties, MotherboardGateway motherboardGateway, FreeSubscriptionService freeSubscriptionService,
+                             CurrentUserContext currentUserContext){
         this.properties = properties;
         this.motherboardGateway = motherboardGateway;
+        this.freeSubscriptionService = freeSubscriptionService;
         this.currentUserContext = currentUserContext;
     }
 
@@ -59,6 +63,7 @@ public class OAuthLoginService {
         Region region = provider == IdentityProvider.WECHAT ? Region.CN : Region.GLOBAL;
         SsoSessionResponse response = motherboardGateway.createSsoSession(new SsoSessionRequest(provider, authorizationCode, region, oauthState.redirectUri()));
         validateResponse(response);
+        freeSubscriptionService.ensureFreeSubscription(response.user().id());
         CurrentUser currentUser = new CurrentUser(response.user().id(), response.user().displayName(), response.user().email());
         currentUserContext.establish(request, currentUser, response.token(), response.expiresIn());
     }
