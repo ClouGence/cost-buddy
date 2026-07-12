@@ -6,6 +6,7 @@
 
     <resultMap id="CloudAccountResultMap" type="com.costbuddy.domain.CloudAccountDO">
         <id column="id" property="id"/>
+        <result column="motherboard_user_id" property="motherboardUserId"/>
         <result column="name" property="name"/>
         <result column="provider" property="provider"/>
         <result column="access_key_id" property="accessKeyId"/>
@@ -16,19 +17,19 @@
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
 
-    <sql id="BaseColumnList">id, name, provider, access_key_id, access_key_secret, bill_owner_id, enabled, created_at, updated_at</sql>
+    <sql id="BaseColumnList">id, motherboard_user_id, name, provider, access_key_id, access_key_secret, bill_owner_id, enabled, created_at, updated_at</sql>
 
-    <select id="selectById" resultMap="CloudAccountResultMap">
-        SELECT <include refid="BaseColumnList"/> FROM cloud_account WHERE id = #{id}
+    <select id="selectByIdAndMotherboardUserId" resultMap="CloudAccountResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM cloud_account WHERE id = #{id} AND motherboard_user_id = #{motherboardUserId}
     </select>
 
-    <select id="selectAll" resultMap="CloudAccountResultMap">
-        SELECT <include refid="BaseColumnList"/> FROM cloud_account ORDER BY id DESC
+    <select id="selectAllByMotherboardUserId" resultMap="CloudAccountResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM cloud_account WHERE motherboard_user_id = #{motherboardUserId} ORDER BY id DESC
     </select>
 
     <insert id="insert" parameterType="com.costbuddy.domain.CloudAccountDO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO cloud_account (name, provider, access_key_id, access_key_secret, bill_owner_id, enabled)
-        VALUES (#{name}, #{provider}, #{accessKeyId}, #{accessKeySecret}, #{billOwnerId}, #{enabled})
+        INSERT INTO cloud_account (motherboard_user_id, name, provider, access_key_id, access_key_secret, bill_owner_id, enabled)
+        VALUES (#{motherboardUserId}, #{name}, #{provider}, #{accessKeyId}, #{accessKeySecret}, #{billOwnerId}, #{enabled})
     </insert>
 
     <update id="update" parameterType="com.costbuddy.domain.CloudAccountDO">
@@ -39,10 +40,10 @@
             access_key_secret = #{accessKeySecret},
             bill_owner_id = #{billOwnerId},
             enabled = #{enabled}
-        WHERE id = #{id}
+        WHERE id = #{id} AND motherboard_user_id = #{motherboardUserId}
     </update>
 
-    <delete id="deleteById">
-        DELETE FROM cloud_account WHERE id = #{id}
+    <delete id="deleteByIdAndMotherboardUserId">
+        DELETE FROM cloud_account WHERE id = #{id} AND motherboard_user_id = #{motherboardUserId}
     </delete>
 </mapper>

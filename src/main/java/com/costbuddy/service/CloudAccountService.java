@@ -1,6 +1,7 @@
 package com.costbuddy.service;
 
 import com.costbuddy.aliyun.AliyunBssOpenApiClient;
+import com.costbuddy.auth.CurrentUserProvider;
 import com.costbuddy.common.exception.NotFoundException;
 import com.costbuddy.domain.CloudAccountDO;
 import com.costbuddy.dto.request.CloudAccountRequest;
@@ -14,27 +15,30 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CloudAccountService {
 
-    private static final String RESOURCE_NAME = "cloud_account";
+    private static final String          RESOURCE_NAME = "cloud_account";
 
-    private final CloudAccountMapper      cloudAccountMapper;
+    private final CloudAccountMapper     cloudAccountMapper;
     private final AliyunBssOpenApiClient aliyunBssOpenApiClient;
+    private final CurrentUserProvider    currentUserProvider;
 
-    public CloudAccountService(CloudAccountMapper cloudAccountMapper, AliyunBssOpenApiClient aliyunBssOpenApiClient) {
+    public CloudAccountService(CloudAccountMapper cloudAccountMapper, AliyunBssOpenApiClient aliyunBssOpenApiClient, CurrentUserProvider currentUserProvider){
         this.cloudAccountMapper = cloudAccountMapper;
         this.aliyunBssOpenApiClient = aliyunBssOpenApiClient;
+        this.currentUserProvider = currentUserProvider;
     }
 
     @Transactional
     public CloudAccountDO create(CloudAccountRequest request) {
         CloudAccountDO cloudAccount = new CloudAccountDO();
         BeanUtils.copyProperties(request, cloudAccount);
+        cloudAccount.setMotherboardUserId(currentUserProvider.motherboardUserId());
         normalize(cloudAccount);
         cloudAccountMapper.insert(cloudAccount);
         return get(cloudAccount.getId());
     }
 
     public CloudAccountDO get(Long id) {
-        CloudAccountDO cloudAccount = cloudAccountMapper.selectById(id);
+        CloudAccountDO cloudAccount = cloudAccountMapper.selectByIdAndMotherboardUserId(id, currentUserProvider.motherboardUserId());
         if (cloudAccount == null) {
             throw new NotFoundException(RESOURCE_NAME, id);
         }
@@ -42,7 +46,7 @@ public class CloudAccountService {
     }
 
     public List<CloudAccountDO> list() {
-        return cloudAccountMapper.selectAll();
+        return cloudAccountMapper.selectAllByMotherboardUserId(currentUserProvider.motherboardUserId());
     }
 
     public CloudAccountCheckResponse check(Long id) {
@@ -55,6 +59,7 @@ public class CloudAccountService {
         CloudAccountDO cloudAccount = new CloudAccountDO();
         BeanUtils.copyProperties(request, cloudAccount);
         cloudAccount.setId(id);
+        cloudAccount.setMotherboardUserId(existing.getMotherboardUserId());
         if (isBlank(request.getAccessKeySecret())) {
             cloudAccount.setAccessKeySecret(existing.getAccessKeySecret());
         }
@@ -66,7 +71,7 @@ public class CloudAccountService {
     @Transactional
     public void delete(Long id) {
         get(id);
-        cloudAccountMapper.deleteById(id);
+        cloudAccountMapper.deleteByIdAndMotherboardUserId(id, currentUserProvider.motherboardUserId());
     }
 
     private void normalize(CloudAccountDO cloudAccount) {

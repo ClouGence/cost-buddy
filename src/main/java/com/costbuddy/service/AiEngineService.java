@@ -15,12 +15,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AiEngineService {
 
-    private static final String RESOURCE_NAME = "ai_engine";
+    private static final String       RESOURCE_NAME = "ai_engine";
 
-    private final AiEngineMapper aiEngineMapper;
-    private final AiChatClient   aiChatClient;
+    private final AiEngineMapper      aiEngineMapper;
+    private final AiChatClient        aiChatClient;
 
-    public AiEngineService(AiEngineMapper aiEngineMapper, AiChatClient aiChatClient) {
+    public AiEngineService(AiEngineMapper aiEngineMapper, AiChatClient aiChatClient){
         this.aiEngineMapper = aiEngineMapper;
         this.aiChatClient = aiChatClient;
     }

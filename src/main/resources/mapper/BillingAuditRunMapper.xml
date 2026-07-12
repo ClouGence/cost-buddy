@@ -6,6 +6,7 @@
 
     <resultMap id="BillingAuditRunResultMap" type="com.costbuddy.domain.BillingAuditRunDO">
         <id column="id" property="id"/>
+        <result column="motherboard_user_id" property="motherboardUserId"/>
         <result column="cloud_account_id" property="cloudAccountId"/>
         <result column="status" property="status"/>
         <result column="bill_date" property="billDate"/>
@@ -22,18 +23,19 @@
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
 
-    <sql id="BaseColumnList">id, cloud_account_id, status, bill_date, period_start_date, period_end_date, item_count, unknown_item_count, total_pretax_amount, unknown_pretax_amount, message, started_at, finished_at, created_at, updated_at</sql>
+    <sql id="BaseColumnList">id, motherboard_user_id, cloud_account_id, status, bill_date, period_start_date, period_end_date, item_count, unknown_item_count, total_pretax_amount, unknown_pretax_amount, message, started_at, finished_at, created_at, updated_at</sql>
 
-    <select id="selectById" resultMap="BillingAuditRunResultMap">
-        SELECT <include refid="BaseColumnList"/> FROM billing_audit_run WHERE id = #{id}
+    <select id="selectByIdAndMotherboardUserId" resultMap="BillingAuditRunResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_audit_run WHERE id = #{id} AND motherboard_user_id = #{motherboardUserId}
     </select>
 
-    <select id="selectAll" resultMap="BillingAuditRunResultMap">
-        SELECT <include refid="BaseColumnList"/> FROM billing_audit_run ORDER BY id DESC
+    <select id="selectAllByMotherboardUserId" resultMap="BillingAuditRunResultMap">
+        SELECT <include refid="BaseColumnList"/> FROM billing_audit_run WHERE motherboard_user_id = #{motherboardUserId} ORDER BY id DESC
     </select>
 
     <insert id="insert" parameterType="com.costbuddy.domain.BillingAuditRunDO" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO billing_audit_run (
+            motherboard_user_id,
             cloud_account_id,
             status,
             bill_date,
@@ -48,6 +50,7 @@
             finished_at
         )
         VALUES (
+            #{motherboardUserId},
             #{cloudAccountId},
             #{status},
             #{billDate},
@@ -77,10 +80,10 @@
             message = #{message},
             started_at = #{startedAt},
             finished_at = #{finishedAt}
-        WHERE id = #{id}
+        WHERE id = #{id} AND motherboard_user_id = #{motherboardUserId}
     </update>
 
-    <delete id="deleteById">
-        DELETE FROM billing_audit_run WHERE id = #{id}
+    <delete id="deleteByIdAndMotherboardUserId">
+        DELETE FROM billing_audit_run WHERE id = #{id} AND motherboard_user_id = #{motherboardUserId}
     </delete>
 </mapper>

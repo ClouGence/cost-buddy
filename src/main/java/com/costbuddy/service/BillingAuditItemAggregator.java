@@ -6,7 +6,6 @@ import com.costbuddy.domain.BillingAuditRunDO;
 import com.costbuddy.domain.BillingItemRuleDO;
 import com.costbuddy.mapper.BillingAuditItemMapper;
 import com.costbuddy.mapper.BillingAuditRawLineMapper;
-import com.costbuddy.mapper.BillingItemRuleMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Comparator;
@@ -23,25 +22,21 @@ public class BillingAuditItemAggregator {
 
     private final BillingAuditRawLineMapper billingAuditRawLineMapper;
     private final BillingAuditItemMapper    billingAuditItemMapper;
-    private final BillingItemRuleMapper     billingItemRuleMapper;
+    private final BillingItemRuleService    billingItemRuleService;
     private final BillingItemRuleMatcher    billingItemRuleMatcher;
 
-    public BillingAuditItemAggregator(
-        BillingAuditRawLineMapper billingAuditRawLineMapper,
-        BillingAuditItemMapper billingAuditItemMapper,
-        BillingItemRuleMapper billingItemRuleMapper,
-        BillingItemRuleMatcher billingItemRuleMatcher
-    ) {
+    public BillingAuditItemAggregator(BillingAuditRawLineMapper billingAuditRawLineMapper, BillingAuditItemMapper billingAuditItemMapper,
+                                      BillingItemRuleService billingItemRuleService, BillingItemRuleMatcher billingItemRuleMatcher){
         this.billingAuditRawLineMapper = billingAuditRawLineMapper;
         this.billingAuditItemMapper = billingAuditItemMapper;
-        this.billingItemRuleMapper = billingItemRuleMapper;
+        this.billingItemRuleService = billingItemRuleService;
         this.billingItemRuleMatcher = billingItemRuleMatcher;
     }
 
     @Transactional
     public BillingAuditAggregationResult aggregate(BillingAuditRunDO run) {
         billingAuditItemMapper.deleteByRunId(run.getId());
-        List<BillingItemRuleDO> rules = billingItemRuleMatcher.sortRules(billingItemRuleMapper.selectAll());
+        List<BillingItemRuleDO> rules = billingItemRuleMatcher.sortRules(billingItemRuleService.list());
         Map<AggregationKey, ItemAccumulator> accumulators = new LinkedHashMap<>();
         for (BillingAuditRawLineDO rawLine : billingAuditRawLineMapper.selectByRunId(run.getId())) {
             AggregationKey key = AggregationKey.from(rawLine);
@@ -49,7 +44,8 @@ public class BillingAuditItemAggregator {
         }
 
         BillingAuditAggregationResult result = new BillingAuditAggregationResult();
-        accumulators.values().stream()
+        accumulators.values()
+            .stream()
             .map(accumulator -> accumulator.toAuditItem(run.getId(), rules))
             .sorted(Comparator.comparing(BillingAuditItemDO::getPeriodPretaxAmount, Comparator.reverseOrder()))
             .forEach(item -> {
@@ -77,21 +73,11 @@ public class BillingAuditItemAggregator {
         return value == null || value.isBlank();
     }
 
-    private record AggregationKey(
-        String provider,
-        String productCode,
-        String productName,
-        String productDetail,
-        String commodityCode,
-        String billingItemCode,
-        String billingItem,
-        String subscriptionType,
-        String currency
-    ) {
+    private record AggregationKey(String provider, String productCode, String productName, String productDetail, String commodityCode, String billingItemCode, String billingItem,
+                                  String subscriptionType, String currency) {
 
         private static AggregationKey from(BillingAuditRawLineDO rawLine) {
-            return new AggregationKey(
-                rawLine.getProvider(),
+            return new AggregationKey(rawLine.getProvider(),
                 rawLine.getProductCode(),
                 rawLine.getProductName(),
                 rawLine.getProductDetail(),
@@ -99,24 +85,23 @@ public class BillingAuditItemAggregator {
                 rawLine.getBillingItemCode(),
                 rawLine.getBillingItem(),
                 rawLine.getSubscriptionType(),
-                rawLine.getCurrency()
-            );
+                rawLine.getCurrency());
         }
     }
 
     private class ItemAccumulator {
 
         private final AggregationKey key;
-        private final Set<String>    instanceIds = new LinkedHashSet<>();
-        private final Set<String>    regions = new LinkedHashSet<>();
-        private final Set<String>    billingTypes = new LinkedHashSet<>();
+        private final Set<String>    instanceIds           = new LinkedHashSet<>();
+        private final Set<String>    regions               = new LinkedHashSet<>();
+        private final Set<String>    billingTypes          = new LinkedHashSet<>();
         private BigDecimal           stableDayPretaxAmount = BigDecimal.ZERO;
         private String               sampleInstanceId;
         private String               sampleRegion;
         private String               sampleUsage;
         private String               sampleUsageUnit;
 
-        private ItemAccumulator(AggregationKey key) {
+        private ItemAccumulator(AggregationKey key){
             this.key = key;
         }
 

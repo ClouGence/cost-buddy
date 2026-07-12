@@ -7,6 +7,7 @@ import lombok.Data;
 public class BillingItemRuleDO {
 
     private Long          id;
+    private Long          motherboardUserId;
     private String        provider;
     private String        matchScope;
     private String        productCode;

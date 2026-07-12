@@ -1,5 +1,6 @@
 package com.costbuddy.service;
 
+import com.costbuddy.auth.CurrentUserProvider;
 import com.costbuddy.common.exception.BusinessException;
 import com.costbuddy.common.exception.NotFoundException;
 import com.costbuddy.domain.BillingAuditItemDO;
@@ -15,25 +16,28 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class BillingItemRuleService {
 
-    private static final String RESOURCE_NAME = "billing_item_rule";
+    private static final String         RESOURCE_NAME = "billing_item_rule";
 
     private final BillingItemRuleMapper billingItemRuleMapper;
+    private final CurrentUserProvider   currentUserProvider;
 
-    public BillingItemRuleService(BillingItemRuleMapper billingItemRuleMapper) {
+    public BillingItemRuleService(BillingItemRuleMapper billingItemRuleMapper, CurrentUserProvider currentUserProvider){
         this.billingItemRuleMapper = billingItemRuleMapper;
+        this.currentUserProvider = currentUserProvider;
     }
 
     @Transactional
     public BillingItemRuleDO create(BillingItemRuleRequest request) {
         BillingItemRuleDO rule = new BillingItemRuleDO();
         BeanUtils.copyProperties(request, rule);
+        rule.setMotherboardUserId(currentUserProvider.motherboardUserId());
         normalize(rule);
         billingItemRuleMapper.insert(rule);
         return get(rule.getId());
     }
 
     public BillingItemRuleDO get(Long id) {
-        BillingItemRuleDO rule = billingItemRuleMapper.selectById(id);
+        BillingItemRuleDO rule = billingItemRuleMapper.selectByIdAndMotherboardUserId(id, currentUserProvider.motherboardUserId());
         if (rule == null) {
             throw new NotFoundException(RESOURCE_NAME, id);
         }
@@ -41,7 +45,7 @@ public class BillingItemRuleService {
     }
 
     public List<BillingItemRuleDO> list() {
-        return billingItemRuleMapper.selectAll();
+        return billingItemRuleMapper.selectAllByMotherboardUserId(currentUserProvider.motherboardUserId());
     }
 
     @Transactional
@@ -50,6 +54,7 @@ public class BillingItemRuleService {
         BillingItemRuleDO rule = new BillingItemRuleDO();
         BeanUtils.copyProperties(request, rule);
         rule.setId(id);
+        rule.setMotherboardUserId(currentUserProvider.motherboardUserId());
         normalize(rule);
         billingItemRuleMapper.update(rule);
         return get(id);
@@ -58,12 +63,13 @@ public class BillingItemRuleService {
     @Transactional
     public void delete(Long id) {
         get(id);
-        billingItemRuleMapper.deleteById(id);
+        billingItemRuleMapper.deleteByIdAndMotherboardUserId(id, currentUserProvider.motherboardUserId());
     }
 
     @Transactional
     public BillingItemRuleDO createFromAuditItem(BillingAuditItemDO item, BillingAuditItemRuleRequest request) {
         BillingItemRuleDO rule = new BillingItemRuleDO();
+        rule.setMotherboardUserId(currentUserProvider.motherboardUserId());
         rule.setProvider(item.getProvider());
         rule.setMatchScope(request.getMatchScope());
         rule.setProductCode(item.getProductCode());

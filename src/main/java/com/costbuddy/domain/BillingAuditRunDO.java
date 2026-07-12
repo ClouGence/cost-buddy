@@ -9,6 +9,7 @@ import lombok.Data;
 public class BillingAuditRunDO {
 
     private Long          id;
+    private Long          motherboardUserId;
     private Long          cloudAccountId;
     private String        status;
     private LocalDate     billDate;
