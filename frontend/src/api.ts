@@ -27,6 +27,16 @@ export interface CurrentUser {
   email?: string;
 }
 
+export interface CurrentSubscription {
+  subscribed: boolean;
+  subscriptionId?: number;
+  planId?: number;
+  planName?: string;
+  status?: string;
+  currentPeriodEnd?: string;
+  autoRenew?: boolean;
+}
+
 export interface CloudAccount {
   id: number;
   name: string;
@@ -177,6 +187,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export const api = {
   getAuthenticationConfig: () => request<AuthenticationConfig>('/api/auth/config'),
   getCurrentUser: () => request<CurrentUser>('/api/me'),
+  getCurrentSubscription: () => request<CurrentSubscription>('/api/me/subscription'),
   logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
 
   listCloudAccounts: () => request<CloudAccount[]>('/api/cloud-accounts'),

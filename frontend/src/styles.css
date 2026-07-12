@@ -150,6 +150,53 @@ label {
   gap: 8px;
 }
 
+.subscription-summary {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 10px;
+  padding-left: 12px;
+  border-left: 1px solid var(--color-hairline);
+}
+
+.subscription-primary {
+  display: grid;
+  gap: 3px;
+}
+
+.subscription-primary strong {
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.subscription-status {
+  width: fit-content;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.subscription-status-active {
+  color: var(--color-success);
+}
+
+.subscription-status-expired,
+.subscription-status-canceled {
+  color: var(--color-danger);
+}
+
+.subscription-meta {
+  display: grid;
+  gap: 2px;
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .user-session {
   display: inline-flex;
   max-width: 220px;
@@ -796,6 +843,7 @@ tbody tr:hover {
   }
 
   .icon-actions {
+    flex-wrap: wrap;
     justify-content: flex-end;
   }
 

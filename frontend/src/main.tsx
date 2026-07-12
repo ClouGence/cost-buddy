@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AiEngine, ApiError, AuthenticationConfig, BillingAuditItem, BillingAuditItemResource, BillingAuditRun, BillingItemExplanation, BillingItemRule, CloudAccount, CloudAccountCheck, CurrentUser, api } from './api';
+import { AiEngine, ApiError, AuthenticationConfig, BillingAuditItem, BillingAuditItemResource, BillingAuditRun, BillingItemExplanation, BillingItemRule, CloudAccount, CloudAccountCheck, CurrentSubscription, CurrentUser, api } from './api';
 import './styles.css';
 
 type Tab = 'audits' | 'accounts' | 'rules' | 'ai';
@@ -28,6 +28,22 @@ const TEXT = {
     messages: {
       refreshed: '已刷新',
       loadFailed: '加载失败'
+    },
+    subscription: {
+      periodEnd: '有效期至',
+      autoRenew: '自动续费',
+      enabled: '已开启',
+      disabled: '未开启',
+      notSubscribed: '未订阅',
+      localMode: '本地模式',
+      freeQuotaExhausted: 'Free 额度已用完'
+    },
+    subscriptionStatuses: {
+      ACTIVE: '有效',
+      EXPIRED: '已到期',
+      CANCELED: '已取消',
+      NOT_SUBSCRIBED: '未订阅',
+      LOCAL: '本地'
     },
     auth: {
       signIn: '登录 CostBuddy',
@@ -195,6 +211,22 @@ const TEXT = {
     messages: {
       refreshed: 'Refreshed',
       loadFailed: 'Load failed'
+    },
+    subscription: {
+      periodEnd: 'Ends',
+      autoRenew: 'Auto-renew',
+      enabled: 'On',
+      disabled: 'Off',
+      notSubscribed: 'No plan',
+      localMode: 'Local mode',
+      freeQuotaExhausted: 'Free plan quota has been used up'
+    },
+    subscriptionStatuses: {
+      ACTIVE: 'Active',
+      EXPIRED: 'Expired',
+      CANCELED: 'Canceled',
+      NOT_SUBSCRIBED: 'No plan',
+      LOCAL: 'Local'
     },
     auth: {
       signIn: 'Sign in to CostBuddy',
@@ -379,6 +411,7 @@ function App() {
   const [authReady, setAuthReady] = useState(false);
   const [authConfig, setAuthConfig] = useState<AuthenticationConfig | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [subscription, setSubscription] = useState<CurrentSubscription | null>(null);
   const [authError, setAuthError] = useState(() => new URLSearchParams(window.location.search).get('authError') || '');
   const [authReloadKey, setAuthReloadKey] = useState(0);
   const [tab, setTab] = useState<Tab>('audits');
@@ -394,16 +427,18 @@ function App() {
   const loadAll = useCallback(async (showSuccess = false) => {
     setBusy(true);
     try {
-      const [nextAccounts, nextRuns, nextRules, nextAiEngines] = await Promise.all([
+      const [nextAccounts, nextRuns, nextRules, nextAiEngines, nextSubscription] = await Promise.all([
         api.listCloudAccounts(),
         api.listBillingAudits(),
         api.listBillingItemRules(),
-        api.listAiEngines()
+        api.listAiEngines(),
+        api.getCurrentSubscription()
       ]);
       setAccounts(nextAccounts);
       setRuns(nextRuns);
       setRules(nextRules);
       setAiEngines(nextAiEngines);
+      setSubscription(nextSubscription);
       if (showSuccess) {
         setStatus(TEXT[language].messages.refreshed);
       }
@@ -488,6 +523,7 @@ function App() {
       setRuns([]);
       setRules([]);
       setAiEngines([]);
+      setSubscription(null);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : text.auth.loginFailed);
     } finally {
@@ -528,6 +564,7 @@ function App() {
             <button className={tab === 'ai' ? 'active' : ''} onClick={() => setTab('ai')}>{text.tabs.ai}</button>
           </nav>
           <div className="icon-actions">
+            {subscription && <SubscriptionSummary subscription={subscription} text={text} />}
             {currentUser && (
               <div className="user-session" title={currentUser.email || String(currentUser.motherboardUserId)}>
                 <span>{currentUser.displayName || currentUser.email || `#${currentUser.motherboardUserId}`}</span>
@@ -558,6 +595,34 @@ function App() {
         {tab === 'rules' && <RuleWorkspace rules={rules} onReload={loadAll} onStatus={setStatus} text={text} />}
         {tab === 'ai' && <AiWorkspace aiEngines={aiEngines} onReload={loadAll} onStatus={setStatus} text={text} />}
       </main>
+    </div>
+  );
+}
+
+function SubscriptionSummary({ subscription, text }: { subscription: CurrentSubscription; text: UiText }) {
+  const status = subscription.status || 'NOT_SUBSCRIBED';
+  const statusLabel = (text.subscriptionStatuses as Record<string, string>)[status] ?? status;
+  const planName = subscription.planName || text.subscription.notSubscribed;
+  const isLocal = status === 'LOCAL';
+
+  return (
+    <div className="subscription-summary">
+      <div className="subscription-primary">
+        <strong>{planName}</strong>
+        <span className={`subscription-status subscription-status-${status.toLowerCase()}`}>{statusLabel}</span>
+      </div>
+      {(isLocal || subscription.subscribed) && (
+        <div className="subscription-meta">
+          {isLocal ? (
+            <span>{text.subscription.localMode}</span>
+          ) : (
+            <>
+              <span>{text.subscription.periodEnd}: {formatDateTime(subscription.currentPeriodEnd)}</span>
+              <span>{text.subscription.autoRenew}: {subscription.autoRenew ? text.subscription.enabled : text.subscription.disabled}</span>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1557,6 +1622,9 @@ function createUsageIdempotencyKey(meterItemCode: string) {
 }
 
 function formatUsageRejection(reason: string | undefined, text: UiText) {
+  if (reason === 'QUOTA_EXCEEDED') {
+    return text.subscription.freeQuotaExhausted;
+  }
   return text.audit.usageRejected.replace('{reason}', reason || 'REJECTED');
 }
 
